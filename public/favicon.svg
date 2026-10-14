@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>X-Lance</title>
+  <!-- web-old primary: Radix indigoDark.indigo4. -->
+  <rect width="64" height="64" rx="14" fill="#1D2E62"/>
+  <!-- The X is the first glyph from the X-Lance wordmark, scaled to leave room for the sweep. -->
+  <path
+    fill="#fff"
+    d="M0 27.456L6.01271 19.8067L.133616 12.3077H4.87698L8.32872 16.9489L11.7805 12.3077H16.5461L10.667 19.8067L16.6574 27.456H11.8918L8.32872 22.6859L4.76563 27.456H0Z"
+    transform="translate(14.1 -14.45) scale(2.15)"
+  />
+  <!-- A bright, rounded forward sweep remains visible even in a 16px browser tab. -->
+  <path
+    d="M12.5 53C26.5 53 40.5 50.5 51.5 45.5"
+    fill="none"
+    stroke="#9EADFF"
+    stroke-linecap="round"
+    stroke-width="5"
+  />
+</svg>
