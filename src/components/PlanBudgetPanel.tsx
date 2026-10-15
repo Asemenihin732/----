@@ -81,7 +81,8 @@ export function PlanBudgetPanel({ project, team }: Props) {
 
 
   return (
-    <div className={`rounded-2xl border bg-card p-5 ${accent.border}`}>
+    // на широких экранах высота панели ограничена (--ui-plan-max-height), лишнее прокручивается внутри
+    <div className={`shrink-0 rounded-2xl border bg-card p-4 lg:max-h-[var(--ui-plan-max-height)] lg:overflow-y-auto ${accent.border}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -113,9 +114,9 @@ export function PlanBudgetPanel({ project, team }: Props) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <h3 className="mb-2 text-caption font-semibold uppercase tracking-wide text-muted">
             Диаграмма Ганта
           </h3>
           {/* <ul className="space-y-1">
@@ -142,19 +143,19 @@ export function PlanBudgetPanel({ project, team }: Props) {
         </div>
 
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Бюджет</h3>
-          <ul className="space-y-1">
+          <h3 className="mb-2 text-caption font-semibold uppercase tracking-wide text-muted">Бюджет</h3>
+          <ul className="grid grid-cols-1 gap-1 xl:grid-cols-2">
             {project.budget.map((b, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded-lg bg-soft px-3 py-1.5 text-sm"
+                className="flex items-center justify-between gap-2 rounded-lg bg-soft px-3 py-1 text-sm"
               >
-                <span className="text-body">{b.item}</span>
-                <span className="text-muted">{formatRub(b.cost)}</span>
+                <span className="truncate text-body">{b.item}</span>
+                <span className="shrink-0 text-muted">{formatRub(b.cost)}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+          <div className="mt-2 flex flex-wrap gap-2 text-sm">
             <span className={`rounded-full px-3 py-1 ${accent.bgSoft} ${accent.text}`}>
               Доход: {formatRub(team.factIncome)}
               {incomeChanged && (
@@ -188,10 +189,10 @@ function Metric({
   changed: boolean;
 }) {
   return (
-    <div className="min-w-[92px] rounded-xl bg-soft px-4 py-2 text-center">
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
+    <div className="min-w-[5.5rem] rounded-xl bg-soft px-4 py-1.5 text-center">
+      <div className="text-caption uppercase tracking-wide text-muted">{label}</div>
       <div className={`text-lg font-bold ${changed ? 'text-strong' : 'text-body'}`}>{value}</div>
-      <div className="text-[10px] text-faint">{sub}</div>
+      <div className="text-caption text-faint">{sub}</div>
     </div>
   );
 }

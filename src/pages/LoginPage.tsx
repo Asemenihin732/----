@@ -61,7 +61,7 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen place-items-center bg-canvas px-4 py-10">
-      <div className="w-full max-w-[460px] overflow-hidden rounded-3xl border border-line bg-card">
+      <div className="w-full max-w-[29rem] overflow-hidden rounded-3xl border border-line bg-card">
         <div className="bg-gradient-to-br from-[#212346] via-[#2a2a63] to-[#6270d0] p-7 text-white">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 text-lg font-black">

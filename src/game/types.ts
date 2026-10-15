@@ -15,9 +15,57 @@ export type CardCategory =
   | 'ZAKAZCHIK'
   | 'FORS_MAJOR'
   | 'RESURSY'
-  | 'UNIVERSAL';
+  | 'UNIVERSAL'
+  | 'BONUS';
 
 export type VariantKey = 'A' | 'B' | 'C';
+
+/** Платёж, который решение по карточке вносит в X-Lance. */
+export interface CardPayment {
+  /** Название платежа — на что он */
+  name: string;
+  /** Сумма, ₽: отрицательная — исходящий платёж, положительная — входящий */
+  amount: number;
+  /** Статья расходов X-Lance (совпадает со статьёй бюджета проекта) */
+  expenseItem?: string;
+  /**
+   * Не новый платёж, а сокращение расхода подрядчика/материала: сумма исходящего
+   * платежа по статье `expenseItem` уменьшается на `amount` (amount > 0 —
+   * сэкономленные деньги). Экономия на штатном сотруднике — действие `labor`.
+   */
+  reduce?: boolean;
+}
+
+/**
+ * Действие в X-Lance (кроме платежей и удовлетворённости), которое выполняет
+ * решение по карточке. Ресурсы и задачи — по именам из плана работ.
+ */
+export type XlAction =
+  /** Изменить длительность задачи на `days` дней */
+  | { type: 'duration'; task: string; days: number }
+  /** Продлить проект (последнюю задачу) — запрос на изменение срока */
+  | { type: 'extendProject'; days: number }
+  /**
+   * Добавить в план новую задачу. `before` — встать перед задачей-якорем
+   * (срок проекта растёт на длительность), `parallel` — идти параллельно
+   * якорю с теми же предшественниками (срок не меняется).
+   */
+  | {
+      type: 'addTask';
+      name: string;
+      /** Длительность, дн. — целое число (X-Lance не принимает дробную) */
+      days: number;
+      anchor: string;
+      placement: 'before' | 'parallel';
+      /** Исполнители и трудозатраты, чел.-дн. (0 — назначен, оплата отдельным платежом) */
+      assign?: { resource: string; days: number }[];
+    }
+  /** Изменить трудозатраты ресурса на задаче на `days` чел.-дн. (≤ 0 итог — снять с задачи) */
+  | { type: 'labor'; task: string; resource: string; days: number }
+  /** Передать работу ресурса `from` на задаче ресурсу `to` (новый ресурс создаётся без ставки) */
+  | { type: 'reassign'; task: string; from: string; to: string }
+  /** Шаг, который выполняется вручную (нет в API) — показывается команде */
+  | { type: 'manual'; text: string };
 
 /** Вариант решения по карточке */
 export interface Variant {
@@ -35,6 +83,10 @@ export interface Variant {
   xlanceAction: string;
   /** Пошаговый чек-лист действий в X-Lance (из колоды 18 карт) */
   xlanceSteps?: string[];
+  /** Платежи для X-Lance (из колоды 18 карт) */
+  payments?: CardPayment[];
+  /** Действия с задачами и ресурсами X-Lance (из колоды 18 карт) */
+  actions?: XlAction[];
 }
 
 /** Карточка проблемы */
@@ -45,6 +97,8 @@ export interface Card {
   category: CardCategory;
   title: string;
   flavor: string;
+  /** Бонусная карточка: приятное событие с одним вариантом «Принять» */
+  bonus?: boolean;
   variants: Variant[];
 }
 

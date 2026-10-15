@@ -1,32 +1,36 @@
 import { motion } from 'framer-motion';
-import type { Card } from '../game/types';
 import { accentFor } from '../data/theme';
 import { categoryEmoji } from '../data/labels';
 
 interface Props {
-  cards: Card[];
+  /** Сколько закрытых карт выложить (содержимое не важно — откроется карточка колоды) */
+  count?: number;
   accent: string;
-  onPick: (cardId: string) => void;
+  /** Выбрана закрытая карта с этим номером */
+  onPick: (backId: string) => void;
 }
 
-export function CardGrid({ cards, accent, onPick }: Props) {
+export function CardGrid({ count = 4, accent, onPick }: Props) {
+  const backs = Array.from({ length: count }, (_, i) => `back-${i + 1}`);
   const theme = accentFor(accent);
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {cards.map((card, i) => (
+    // На широких экранах ряд карт занимает всю доступную высоту, ширина карты — по пропорции.
+    <div className="grid grid-cols-2 gap-4 pt-1 sm:grid-cols-4 lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:grid-rows-[minmax(0,1fr)]">
+      {backs.map((backId, i) => (
         <motion.button
-          key={card.id}
+          key={backId}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.06 }}
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => onPick(card.id)}
-          className={`relative flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border bg-gradient-to-br ${theme.border} ${theme.gradient} bg-card shadow-lg shadow-black/20`}
+          data-testid="card-back"
+          onClick={() => onPick(backId)}
+          className={`relative flex aspect-[var(--ui-card-ratio)] w-full cursor-pointer lg:h-full lg:w-auto lg:max-w-full lg:justify-self-center flex-col items-center justify-center gap-2 rounded-2xl border bg-gradient-to-br ${theme.border} ${theme.gradient} bg-card shadow-lg shadow-black/20`}
         >
           <span className="absolute inset-2 rounded-xl border border-line" />
           <span className="text-3xl opacity-70">🎴</span>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-faint">Карта проблемы</span>
+          <span className="text-caption uppercase tracking-[0.2em] text-faint">Карта проблемы</span>
         </motion.button>
       ))}
     </div>

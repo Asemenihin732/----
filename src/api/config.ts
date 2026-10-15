@@ -2,11 +2,11 @@
  * Конфигурация API-слоя X-Lance.
  * URL, токен и workspace читаются из .env (переменные VITE_*).
  */
-import { allCards } from '../data/cards';
+import { deckCards } from '../data/deck';
 
 /** Карточка игры по её идентификатору */
 function findCard(cardId: string) {
-  return allCards.find((c) => c.id === cardId) ?? null;
+  return deckCards.find((c) => c.id === cardId) ?? null;
 }
 
 const env = import.meta.env;

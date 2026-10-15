@@ -12,7 +12,11 @@
  *                                (без родителя), связи предшествования и трудозатраты
  *
  * Повторный запуск не дублирует данные: тенант и проекты переиспользуются
- * по имени и коду, существующие задачи приводятся к плану.
+ * по имени и коду. Переиспользованный проект возвращается к исходному
+ * состоянию: задачи приводятся к плану (длительность, даты, связи, назначения),
+ * задачи вне плана удаляются, ресурсы вне плана (например, нанятый по карточке
+ * фрилансер) отключаются от проекта, все платежи удаляются и создаются заново
+ * базовые: расходы из плана работ и «Оплата по договору».
  */
 import { getPlan, type PlannerSheet, type PlannerTask } from '../data/plan';
 import { getProject, type TeamId } from '../data/projects';
@@ -24,6 +28,7 @@ import {
   createProjectResource,
   createResource,
   createTask,
+  deleteProjectResource,
   deleteTask,
   ensureTenant,
   myAccess,
@@ -46,6 +51,8 @@ import {
   type Tenant,
 } from './graphqlApi';
 import { GraphqlError } from './graphql';
+import { clearProjectPayments, createBasePayments, ensurePaymentType } from './paymentSync';
+import { withUnits } from './taskDuration';
 
 /* --------------------------------- результат -------------------------------- */
 
@@ -58,6 +65,11 @@ export interface TeamProvisionResult {
   taskIds: string[];
   resourceIds: string[];
   reusedProject: boolean;
+  /** Удалено при сбросе: задачи вне плана и платежи (нет в результатах старых версий) */
+  removedTaskCount?: number;
+  removedPaymentCount?: number;
+  /** Создано базовых платежей: расходы плана и оплата по договору */
+  basePaymentCount?: number;
 }
 
 export interface ProvisionResult {
@@ -303,7 +315,9 @@ async function provisionTasks(
   for (const task of plan.tasks) {
     assertNotAborted(signal);
     const predecessors = buildPredecessors(task, idByNo);
-    const assignments = buildAssignments(task, resourceByName);
+    // загрузку передаём явно: иначе при сбросе X-Lance оставит загрузку, изменённую
+    // карточкой (например, 50%), и пересчитает от неё работу
+    const assignments = withUnits(buildAssignments(task, resourceByName), task.durationDays);
     const existing = existingByName.get(normalizeName(task.name));
     let info: TaskInfo;
     if (existing) {
@@ -391,6 +405,16 @@ export async function provisionGame(options: ProvisionOptions): Promise<Provisio
     (await ensureSelfResource(tenant, access, me, existingResources));
   const managerResourceId = selfResource?.id ?? null;
 
+  // Типы входящих и исходящих платежей — чтобы карточки могли вносить оба вида.
+  // На стендах без платежей шаг пропускается и развёртывание не падает.
+  onProgress('Справочники: типы платежей…');
+  try {
+    await ensurePaymentType(tenant.id, 'EXPENSE');
+    await ensurePaymentType(tenant.id, 'INCOME');
+  } catch (error) {
+    onProgress(`Типы платежей не подготовлены: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
   const teams: TeamProvisionResult[] = [];
   let taskCount = 0;
   let resourceCount = 0;
@@ -472,6 +496,46 @@ export async function provisionGame(options: ProvisionOptions): Promise<Provisio
     );
     taskCount += taskIds.length;
 
+    // Сброс к исходному состоянию: задачи вне плана (и дубли плановых) — результат прошлой игры.
+    const keep = new Set(taskIds);
+    const extraTasks = existingTasks.filter(
+      (t) => !keep.has(t.id) && normalizeName(t.name) !== normalizeName(project.name),
+    );
+    for (const extra of extraTasks) {
+      assertNotAborted(signal);
+      onProgress(`Удаляем задачу вне плана «${extra.name}»`);
+      await deleteTask({ tenantId: tenant.id, projectId: projectInfo.id, id: extra.id });
+    }
+
+    // Ресурсы, подключённые по карточкам (не из плана и не менеджер), — отключаем от проекта
+    const planResources = new Set(plan.resources.map((r) => normalizeName(r.name)));
+    const links = await projectResources(tenant.id, projectInfo.id);
+    for (const link of links) {
+      const name = normalizeName(link.resource?.name ?? '');
+      if (!name || planResources.has(name) || link.resourceId === managerResourceId) continue;
+      onProgress(`Отключаем от проекта ресурс вне плана «${link.resource?.name}»`);
+      try {
+        await deleteProjectResource({ tenantId: tenant.id, projectId: projectInfo.id, id: link.id });
+      } catch (error) {
+        onProgress(`Ресурс не отключён: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    let removedPaymentCount = 0;
+    let basePaymentCount = 0;
+    try {
+      onProgress(`Команда «${project.shortName}»: удаляем платежи прошлой игры…`);
+      removedPaymentCount = await clearProjectPayments(tenant.id, projectInfo.id);
+      onProgress(`Команда «${project.shortName}»: базовые платежи из плана работ…`);
+      // задачи перечитываем: X-Lance пересчитал даты по связям — по ним плановые даты платежей
+      const scheduled = await fetchTasks(tenant.id, projectInfo.id);
+      basePaymentCount = (
+        await createBasePayments({ tenantId: tenant.id, teamId, projectId: projectInfo.id, tasks: scheduled })
+      ).length;
+    } catch (error) {
+      onProgress(`Платежи не подготовлены: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     teams.push({
       teamId,
       projectId: projectInfo.id,
@@ -480,6 +544,9 @@ export async function provisionGame(options: ProvisionOptions): Promise<Provisio
       taskIds,
       resourceIds,
       reusedProject,
+      removedTaskCount: extraTasks.length,
+      removedPaymentCount,
+      basePaymentCount,
     });
   }
 

@@ -10,6 +10,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { formatMoney } from '../game/engine';
 import { LEGEND, ROUND_XLANCE_ACTION } from '../data/gameData';
 import { loadProvisionResult, provisionGame, type ProvisionResult } from '../api/provision';
+import { clearSyncReports } from '../api/syncReports';
 
 const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
@@ -69,6 +70,7 @@ export default function SetupPage() {
 
   const start = () => {
     if (!canStart) return;
+    clearSyncReports(); // новая игра — статусы отправки прошлых решений больше не нужны
     dispatch({ type: 'configure', roundCount: rounds, teamIds });
     navigate(`/team/${teamIds[0]}`);
   };
@@ -76,20 +78,20 @@ export default function SetupPage() {
   return (
     <>
       {/* ------------------------------ легенда -------------------------------- */}
-      <section className="mb-6 rounded-3xl bg-gradient-to-br from-[#212346] via-[#2a2a63] to-[#6270d0] p-6 text-white sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#9ea8e2]">
+      <section className="mb-[var(--ui-gap)] rounded-3xl bg-gradient-to-br from-[#212346] via-[#2a2a63] to-[#6270d0] p-5 text-white sm:px-7">
+        <p className="text-caption font-semibold uppercase tracking-[0.25em] text-[#9ea8e2]">
           X-Lance · Деловая игра · методичка v4.0
         </p>
         <h2 className="mt-1 text-3xl font-extrabold">Спаси конференцию!</h2>
-        <p className="mt-3 max-w-3xl text-sm text-white/85">{LEGEND}</p>
+        <p className="mt-2 max-w-5xl text-sm text-white/85">{LEGEND}</p>
       </section>
 
       <div className="bg-card border rounded-2xl border-line">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 rounded-2xl" >
+        <div className="grid grid-cols-1 gap-x-5 lg:grid-cols-[2fr_3fr] rounded-2xl" >
         {/* ------------------------------ раунды ------------------------------- */}
-        <section className="rounded-2xl bg-card p-5">
+        <section className="rounded-2xl bg-card px-5 pt-4">
           <h3 className="mb-1 font-semibold text-strong">1. Сколько раундов играем</h3>
-          <p className="mb-4 text-sm text-muted">
+          <p className="mb-3 text-sm text-muted">
             В каждом раунде команда открывает одну карточку из четырёх и принимает решение.
           </p>
           <div className="flex gap-2">
@@ -97,6 +99,7 @@ export default function SetupPage() {
               <button
                 key={r}
                 type="button"
+                data-testid={`rounds-${r}`}
                 onClick={() => setRounds(r)}
                 className={`h-10 w-10 rounded-full text-sm font-semibold transition ${
                   r === rounds ? 'bg-brand text-white' : 'bg-soft text-muted hover:bg-soft2'
@@ -106,7 +109,7 @@ export default function SetupPage() {
               </button>
             ))}
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="mt-3 space-y-1.5">
             {([1, 2, 3] as const).map((r) => (
               <div key={r} className="flex items-center gap-3">
                 <span
@@ -123,17 +126,19 @@ export default function SetupPage() {
         </section>
 
         {/* ------------------------------ команды ------------------------------ */}
-        <section className="rounded-2xl bg-card p-5">
+        <section className="rounded-2xl bg-card px-5 pt-4">
           <h3 className="mb-1 font-semibold text-strong">2. Сколько команд играет</h3>
-          <p className="mb-4 text-sm text-muted">
+          <p className="mb-3 text-sm text-muted">
             Каждой команде — свой проект и своя колода карточек.
           </p>
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {PROJECTS.map((p) => {
               const on = selected.has(p.id);
               return (
                 <button
                   key={p.id}
+                  data-testid={`team-${p.id}`}
+                  aria-pressed={on}
                   type="button"
                   onClick={() =>
                     setSelected((prev) => {
@@ -155,10 +160,10 @@ export default function SetupPage() {
                     ✓
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-strong">
+                    <span className="block truncate text-sm font-bold text-strong">
                       {p.emoji} {p.number}. {p.shortName}
                     </span>
-                    <span className="block text-xs text-muted">
+                    <span className="block truncate text-caption text-muted">
                       {formatMoney(p.baseIncome)} · маржа {p.baseMarginPct}% · {p.baseDurationDays} дн.
                     </span>
                   </span>
@@ -176,9 +181,9 @@ export default function SetupPage() {
         </section>
       </div>
                      {/* ---------------------------- развёртывание ---------------------------- */}
-      <section className="mt-5 rounded-2xl  p-5">
+      <section className="rounded-2xl px-5 pt-4">
         <h3 className="mb-1 font-semibold text-strong">3. Развернуть в X-Lance</h3>
-        <p className="mb-4 text-sm text-muted">
+        <p className="mb-3 text-sm text-muted">
           Создаёт тенант (или переиспользует существующий), проекты-команды, задачи работ из планов
           (со связями и трудозатратами, без родительской задачи) и ресурсы со стоимостью. Повторный
           запуск приводит задачи к плану, не дублируя их. Вы вошли как{' '}
@@ -190,17 +195,19 @@ export default function SetupPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex-1 text-sm">
-            <span className="mb-1 block text-xs font-semibold text-muted">Тенант</span>
+            <span className="mb-1 block text-caption font-semibold text-muted">Тенант</span>
             <input
               className={inputCls}
+              data-testid="tenant-name"
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
             />
           </label>
           <label className="text-sm sm:w-32">
-            <span className="mb-1 block text-xs font-semibold text-muted">Ключ</span>
+            <span className="mb-1 block text-caption font-semibold text-muted">Ключ</span>
             <input
               className={inputCls}
+              data-testid="tenant-key"
               value={tenantKey}
               onChange={(e) => setTenantKey(e.target.value)}
             />
@@ -209,6 +216,7 @@ export default function SetupPage() {
             type="button"
             className={btnOutline}
             disabled={!canStart || provisioning}
+            data-testid="provision"
             onClick={provision}
           >
             {provisioning ? 'Разворачиваем…' : 'Создать в X-Lance'}
@@ -235,23 +243,32 @@ export default function SetupPage() {
         ) : null} */}
 
         {provisionError ? (
-          <div className="mt-3 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
+          <div data-testid="provision-error" className="mt-3 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
             {provisionError}
           </div>
         ) : null}
 
         {provisionResult ? (
-          <div className="mt-3 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok">
+          <div data-testid="provision-result" className="mt-3 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok">
             Тенант «{provisionResult.tenantName}»
             {provisionResult.createdTenant ? ' (создан)' : ' (переиспользован)'}: проектов —{' '}
             {provisionResult.teams.length}, задач — {provisionResult.taskCount}, ресурсов —{' '}
-            {provisionResult.resourceCount}.
+            {provisionResult.resourceCount}, платежей —{' '}
+            {provisionResult.teams.reduce((s, t) => s + (t.basePaymentCount ?? 0), 0)}.
+            {provisionResult.teams.some((t) => t.removedTaskCount || t.removedPaymentCount) ? (
+              <>
+                {' '}
+                Сброшено к исходному: задач вне плана —{' '}
+                {provisionResult.teams.reduce((s, t) => s + (t.removedTaskCount ?? 0), 0)}, платежей —{' '}
+                {provisionResult.teams.reduce((s, t) => s + (t.removedPaymentCount ?? 0), 0)}.
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
 
       {/* ------------------------------- запуск -------------------------------- */}
-      <section className="mt-5 rounded-2xl p-5">
+      <section className="rounded-2xl px-5 py-4">
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
           <div className="flex-1">
             <p className="font-bold text-strong">
@@ -262,7 +279,7 @@ export default function SetupPage() {
               индекс проекта.
             </p>
           </div>
-          <button type="button" className={btnPrimary} disabled={!canStart} onClick={start}>
+          <button type="button" data-testid="start-game" className={btnPrimary} disabled={!canStart} onClick={start}>
             Начать игру
           </button>
         </div>

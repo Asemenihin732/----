@@ -60,6 +60,7 @@ export default function RoundPage() {
       <div className="mt-8 flex justify-center">
         <button
           type="button"
+          data-testid="round-next"
           onClick={next}
           className="rounded-full bg-brand px-8 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
         >

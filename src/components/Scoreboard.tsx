@@ -51,10 +51,10 @@ export function Scoreboard({
   const rows = buildRows(teams, teamIds);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-soft text-left text-[11px] uppercase tracking-wide text-muted">
+          <tr className="bg-soft text-left text-caption uppercase tracking-wide text-muted">
             <th className="px-4 py-3">#</th>
             <th className="px-4 py-3">Команда</th>
             <th className="px-4 py-3">Срок</th>

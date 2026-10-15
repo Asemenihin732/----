@@ -1,6 +1,6 @@
 /**
  * graphqlApi.ts — типизированные операции X-Lance GraphQL, нужные игре:
- * тенанты, справочники (типы/статусы объектов), проекты-команды, задачи и ресурсы.
+ * тенанты, справочники (типы/статусы объектов), проекты-команды, задачи, ресурсы и платежи.
  *
  * Все запросы идут через authGql — с access-токеном и автообновлением.
  */
@@ -34,6 +34,8 @@ export interface ObjectTypeInfo {
   enabled: boolean;
   isScheduled: boolean;
   startStatusId: string;
+  /** Для типов платежей: направление (EXPENSE — исходящий, INCOME — входящий) */
+  paymentDirection?: string | null;
 }
 
 export type StatusCategory = 'START' | 'IN_PROGRESS' | 'CLOSING';
@@ -356,6 +358,22 @@ export async function createProjectResource(input: {
   return data.createProjectResource;
 }
 
+const DELETE_PROJECT_RESOURCE = /* GraphQL */ `
+  mutation DeleteProjectResource($input: DeleteProjectResourceInput!) {
+    deleteProjectResource(input: $input)
+  }
+`;
+
+/** Отключить ресурс от проекта (связь проект–ресурс по её id). */
+export async function deleteProjectResource(input: {
+  tenantId: string;
+  projectId: string;
+  id: string;
+}): Promise<boolean> {
+  const data = await authGql<{ deleteProjectResource: boolean }>(DELETE_PROJECT_RESOURCE, { input });
+  return data.deleteProjectResource;
+}
+
 export async function projectResources(
   tenantId: string,
   projectId: string,
@@ -611,4 +629,240 @@ export async function tasks(tenantId: string, projectId: string): Promise<TaskIn
     input: { tenantId, projectId: [projectId] },
   });
   return data.tasks;
+}
+
+/* --------------------------------- платежи ---------------------------------- */
+
+export type PaymentDirection = 'EXPENSE' | 'INCOME';
+
+export interface PaymentInfo {
+  id: string;
+  name: string;
+  amount: number;
+  direction: PaymentDirection;
+  description?: string | null;
+  expenseItemId?: string | null;
+  objectTypeId: string;
+  projectId: string;
+  statusId: string;
+  planDate?: string | null;
+  factDate?: string | null;
+  isPaid: boolean;
+}
+
+export interface ExpenseItemInfo {
+  id: string;
+  name: string;
+  enabled: boolean;
+  isDefault: boolean;
+  position: number;
+}
+
+// Отдельный запрос: поле paymentDirection есть не на всех стендах X-Lance,
+// поэтому общий запрос типов объектов (провижининг) его не трогает.
+const PAYMENT_TYPES = /* GraphQL */ `
+  query PaymentTypes($input: FindManyObjectTypesInput!) {
+    objectTypes(input: $input) {
+      id
+      name
+      objectClass
+      enabled
+      isScheduled
+      startStatusId
+      paymentDirection
+    }
+  }
+`;
+
+const PAYMENT_TYPE_FIELDS = /* GraphQL */ `
+  id
+  name
+  objectClass
+  enabled
+  isScheduled
+  startStatusId
+  paymentDirection
+`;
+
+const CREATE_OBJECT_TYPE = /* GraphQL */ `
+  mutation CreateObjectType($input: CreateObjectTypeInput!) {
+    createObjectType(input: $input) {
+      ${PAYMENT_TYPE_FIELDS}
+    }
+  }
+`;
+
+const ENABLE_OBJECT_TYPE = /* GraphQL */ `
+  mutation EnableObjectType($input: SetObjectTypeEnabledInput!) {
+    enableObjectType(input: $input) {
+      ${PAYMENT_TYPE_FIELDS}
+    }
+  }
+`;
+
+const DELETE_PAYMENT = /* GraphQL */ `
+  mutation DeletePayment($input: DeletePaymentInput!) {
+    deletePayment(input: $input)
+  }
+`;
+
+const PAYMENT_FIELDS = /* GraphQL */ `
+  id
+  name
+  amount
+  direction
+  description
+  expenseItemId
+  objectTypeId
+  projectId
+  statusId
+  planDate
+  factDate
+  isPaid
+`;
+
+const PAYMENTS = /* GraphQL */ `
+  query Payments($input: FindManyPaymentsInput!) {
+    payments(input: $input) {
+      ${PAYMENT_FIELDS}
+    }
+  }
+`;
+
+const CREATE_PAYMENT = /* GraphQL */ `
+  mutation CreatePayment($input: CreatePaymentInput!) {
+    createPayment(input: $input) {
+      ${PAYMENT_FIELDS}
+    }
+  }
+`;
+
+const UPDATE_PAYMENT = /* GraphQL */ `
+  mutation UpdatePayment($input: UpdatePaymentInput!) {
+    updatePayment(input: $input) {
+      ${PAYMENT_FIELDS}
+    }
+  }
+`;
+
+const EXPENSE_ITEMS = /* GraphQL */ `
+  query ExpenseItems($input: FindManyExpenseItemsInput!) {
+    expenseItems(input: $input) {
+      id
+      name
+      enabled
+      isDefault
+      position
+    }
+  }
+`;
+
+const CREATE_EXPENSE_ITEM = /* GraphQL */ `
+  mutation CreateExpenseItem($input: CreateExpenseItemInput!) {
+    createExpenseItem(input: $input) {
+      id
+      name
+      enabled
+      isDefault
+      position
+    }
+  }
+`;
+
+/** Типы объектов тенанта вместе с направлением платежа. */
+export async function paymentTypes(tenantId: string): Promise<ObjectTypeInfo[]> {
+  const data = await authGql<{ objectTypes: ObjectTypeInfo[] }>(PAYMENT_TYPES, {
+    input: { tenantId, take: 100 },
+  });
+  return data.objectTypes;
+}
+
+/** Создать тип объекта (используется для недостающего типа платежей). */
+export async function createObjectType(input: {
+  tenantId: string;
+  name: string;
+  objectClass: string;
+  startStatusId: string;
+  paymentDirection?: string;
+  isScheduled?: boolean;
+}): Promise<ObjectTypeInfo> {
+  const data = await authGql<{ createObjectType: ObjectTypeInfo }>(CREATE_OBJECT_TYPE, { input });
+  return data.createObjectType;
+}
+
+export async function enableObjectType(tenantId: string, id: string): Promise<ObjectTypeInfo> {
+  const data = await authGql<{ enableObjectType: ObjectTypeInfo }>(ENABLE_OBJECT_TYPE, {
+    input: { tenantId, id },
+  });
+  return data.enableObjectType;
+}
+
+export async function deletePayment(tenantId: string, id: string): Promise<boolean> {
+  const data = await authGql<{ deletePayment: boolean }>(DELETE_PAYMENT, { input: { tenantId, id } });
+  return data.deletePayment;
+}
+
+export async function payments(
+  tenantId: string,
+  projectId: string,
+  direction?: PaymentDirection,
+): Promise<PaymentInfo[]> {
+  const data = await authGql<{ payments: PaymentInfo[] }>(PAYMENTS, {
+    input: { tenantId, projectId, direction },
+  });
+  return data.payments;
+}
+
+/** Создать платёж. Направление определяется типом объекта (`objectTypeId`). */
+export async function createPayment(input: {
+  tenantId: string;
+  projectId: string;
+  objectTypeId: string;
+  name: string;
+  amount: number;
+  description?: string;
+  expenseItemId?: string;
+  planDate?: string;
+  factDate?: string;
+  statusId?: string;
+}): Promise<PaymentInfo> {
+  const data = await authGql<{ createPayment: PaymentInfo }>(CREATE_PAYMENT, { input });
+  return data.createPayment;
+}
+
+export async function updatePayment(input: {
+  tenantId: string;
+  id: string;
+  name?: string;
+  amount?: number;
+  description?: string;
+  expenseItemId?: string;
+  planDate?: string;
+  factDate?: string;
+  statusId?: string;
+}): Promise<PaymentInfo> {
+  const data = await authGql<{ updatePayment: PaymentInfo }>(UPDATE_PAYMENT, { input });
+  return data.updatePayment;
+}
+
+export async function expenseItems(tenantId: string): Promise<ExpenseItemInfo[]> {
+  const data = await authGql<{ expenseItems: ExpenseItemInfo[] }>(EXPENSE_ITEMS, {
+    input: { tenantId },
+  });
+  return data.expenseItems;
+}
+
+export async function createExpenseItem(tenantId: string, name: string): Promise<ExpenseItemInfo> {
+  const data = await authGql<{ createExpenseItem: ExpenseItemInfo }>(CREATE_EXPENSE_ITEM, {
+    input: { tenantId, name },
+  });
+  return data.createExpenseItem;
+}
+
+/** Тип объекта для платежей нужного направления (EXPENSE / INCOME). */
+export function pickPaymentType(
+  types: ObjectTypeInfo[],
+  direction: PaymentDirection,
+): ObjectTypeInfo | undefined {
+  return types.find((t) => t.enabled && t.paymentDirection?.toUpperCase() === direction);
 }

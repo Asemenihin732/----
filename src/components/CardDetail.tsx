@@ -21,77 +21,86 @@ export function CardDetail({ card, accent, onChoose }: Props) {
         animate={{ opacity: 1, rotateY: 0 }}
         exit={{ opacity: 0, rotateY: 90 }}
         transition={{ duration: 0.35 }}
-        className={`rounded-2xl border bg-card p-6 ${theme.border}`}
+        className={`flex flex-col rounded-2xl border bg-card p-5 lg:min-h-0 lg:flex-1 ${theme.border}`}
       >
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-lg">{categoryEmoji[card.category]}</span>
-          <span className={`text-xs font-semibold uppercase tracking-wide ${theme.text}`}>
-            {categoryLabels[card.category]}
-          </span>
+        {/* шапка: категория и заголовок в одну строку, ниже — описание */}
+        <div className="shrink-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-2">
+              <span className="text-lg">{categoryEmoji[card.category]}</span>
+              <span className={`text-caption font-semibold uppercase tracking-wide ${theme.text}`}>
+                {categoryLabels[card.category]}
+              </span>
+            </span>
+            <h3 data-testid="card-title" className="text-xl font-bold text-strong">{card.title}</h3>
+          </div>
+          <p className="mt-1 italic text-muted">{card.flavor}</p>
         </div>
-        <h3 className="mb-2 text-2xl font-bold text-strong">{card.title}</h3>
-        <p className="mb-5 italic text-muted">{card.flavor}</p>
 
-        <div className="space-y-3">
-          {card.variants.map((variant) => (
-            <button
+        {/* варианты: на широких экранах — колонками рядом на всю оставшуюся высоту */}
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:auto-cols-fr lg:grid-flow-col">
+          {card.variants.map((variant, i) => (
+            <motion.button
               key={variant.key}
+              type="button"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 + i * 0.08 }}
+              data-testid={`variant-${variant.key}`}
               onClick={() => onChoose(variant)}
-              className="flex w-full items-start gap-3 rounded-xl border border-line bg-soft px-4 py-3 text-left transition hover:border-brand/50 hover:bg-soft2"
+              className="flex flex-col items-start gap-2 rounded-xl border border-line bg-soft p-4 text-left transition-colors hover:border-brand/50 hover:bg-soft2 lg:overflow-y-auto"
             >
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${theme.bg}`}
-              >
-                {variant.key}
-              </span>
-              <span className="flex-1">
-                <span className="block font-medium text-strong">
-                  {variant.label}
-                  {variant.isChangeRequest && (
-                    <span className="ml-2 rounded-full border border-emerald-500/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-500">
-                      запрос на изменение
-                    </span>
-                  )}
+              <span className="flex items-start gap-3">
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${theme.bg}`}
+                >
+                  {variant.key}
                 </span>
-                <span className="mt-1 flex flex-wrap gap-2 text-xs">
-                  {variant.deltaDays ? (
-                    <Chip negative={variant.deltaDays > 0}>{formatSignedDays(variant.deltaDays)} к сроку</Chip>
-                  ) : null}
-                  {variant.deltaCost ? (
-                    <Chip negative={variant.deltaCost > 0}>{formatSignedRub(variant.deltaCost)} расход</Chip>
-                  ) : null}
-                  {variant.deltaRevenue ? (
-                    <Chip negative={false}>{formatSignedRub(variant.deltaRevenue)} доход</Chip>
-                  ) : null}
-                  {variant.deltaSatisfaction ? (
-                    <Chip negative={variant.deltaSatisfaction < 0}>
-                      {formatSignedPct(variant.deltaSatisfaction)} удовл.
-                    </Chip>
-                  ) : null}
-                  {!variant.deltaDays &&
-                  !variant.deltaCost &&
-                  !variant.deltaRevenue &&
-                  !variant.deltaSatisfaction ? (
-                    <Chip negative={false}>без последствий</Chip>
-                  ) : null}
-                </span>
-                {variant.xlanceSteps && (
-                  <ul className="mt-2 space-y-0.5 text-xs text-muted">
-                    {variant.xlanceSteps.map((step, i) => (
-                      <li key={i} className="flex gap-1.5">
-                        <span className="text-faint">→</span>
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <span className="font-semibold text-strong">{variant.label}</span>
               </span>
-            </button>
+              {variant.isChangeRequest && (
+                <span className="rounded-full border border-emerald-500/40 px-2 py-0.5 text-caption uppercase tracking-wide text-emerald-500">
+                  запрос на изменение
+                </span>
+              )}
+              <span className="flex flex-wrap gap-2 text-sm">
+                {variant.deltaDays ? (
+                  <Chip negative={variant.deltaDays > 0}>{formatSignedDays(variant.deltaDays)} к сроку</Chip>
+                ) : null}
+                {variant.deltaCost ? (
+                  <Chip negative={variant.deltaCost > 0}>{formatSignedRub(variant.deltaCost)} расход</Chip>
+                ) : null}
+                {variant.deltaRevenue ? (
+                  <Chip negative={false}>{formatSignedRub(variant.deltaRevenue)} доход</Chip>
+                ) : null}
+                {variant.deltaSatisfaction ? (
+                  <Chip negative={variant.deltaSatisfaction < 0}>
+                    {formatSignedPct(variant.deltaSatisfaction)} удовл.
+                  </Chip>
+                ) : null}
+                {!variant.deltaDays &&
+                !variant.deltaCost &&
+                !variant.deltaRevenue &&
+                !variant.deltaSatisfaction ? (
+                  <Chip negative={false}>без последствий</Chip>
+                ) : null}
+              </span>
+              {variant.xlanceSteps && (
+                <ul className="mt-auto space-y-0.5 pt-1 text-sm text-muted">
+                  {variant.xlanceSteps.map((step, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="text-faint">→</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </motion.button>
           ))}
         </div>
 
         {!card.variants[0].xlanceSteps && (
-          <p className="mt-4 text-[11px] text-faint">X-Lance: {card.variants[0].xlanceAction}</p>
+          <p className="mt-3 shrink-0 text-caption text-faint">X-Lance: {card.variants[0].xlanceAction}</p>
         )}
       </motion.div>
     </AnimatePresence>

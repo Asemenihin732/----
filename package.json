@@ -12,6 +12,9 @@
     "test:data": "node scripts/check-data.cjs",
     "test:engine": "esbuild tests/engine.test.tsx --bundle --platform=node --format=cjs --jsx=automatic --outfile=.tmp-test/engine.test.cjs --log-level=warning && node .tmp-test/engine.test.cjs",
     "test:smoke": "node scripts/smoke.cjs",
+    "e2e:login": "playwright test --project=login",
+    "e2e": "playwright test --project=finance",
+    "e2e:typecheck": "tsc -p tsconfig.e2e.json --noEmit",
     "provision": "esbuild scripts/provision-entry.ts --bundle --platform=node --format=esm --outfile=.tmp-test/provision.mjs --log-level=warning && node .tmp-test/provision.mjs"
   },
   "dependencies": {
@@ -22,7 +25,9 @@
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/vite": "^4.1.0",
+    "@types/node": "22.10.2",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.2",

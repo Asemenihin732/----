@@ -9,8 +9,8 @@ import { motion } from 'framer-motion';
 import { PlanBudgetPanel } from '../components/PlanBudgetPanel';
 import { CardGrid } from '../components/CardGrid';
 import { CardDetail } from '../components/CardDetail';
+import { SyncStatus } from '../components/SyncStatus';
 import { getProject, type TeamId } from '../data/projects';
-import { cardsFor } from '../data/cards';
 import { designatedCard } from '../data/deck';
 import { useSession } from '../game/store';
 import { formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
@@ -58,7 +58,6 @@ export default function TeamRoundPage() {
   const [pickedCardId, setPickedCardId] = useState<string | null>(null);
 
   const round = state.round as Round;
-  const deck = useMemo(() => cardsFor(id, round), [id, round]);
   const decisionsCount = team?.decisions.length ?? 0;
   const roundDecision = decisionsCount >= round;
 
@@ -94,11 +93,10 @@ export default function TeamRoundPage() {
 
   /* --------------------------- выбранная карточка ---------------------------- */
   const card: Card | null = useMemo(() => {
+    // какую бы из закрытых карт ни выбрали — открывается карточка колоды на этот раунд
     if (!pickedCardId) return null;
-    const fixed = designatedCard(id, round);
-    if (fixed) return fixed;
-    return deck.find((c) => c.id === pickedCardId) ?? null;
-  }, [pickedCardId, id, round, deck]);
+    return designatedCard(id, round);
+  }, [pickedCardId, id, round]);
 
   /* ------------------------------- навигация -------------------------------- */
   const idx = state.teamOrder.indexOf(id);
@@ -133,6 +131,26 @@ export default function TeamRoundPage() {
   }
 
   const decisionThisRound = team.decisions.find((d) => d.round === round) ?? null;
+  // карточка и вариант принятого решения — только если решение по карточке колоды
+  const roundCard = designatedCard(id, round);
+  const decidedCard = decisionThisRound && roundCard?.title === decisionThisRound.cardTitle ? roundCard : null;
+  const decidedVariant = decidedCard?.variants.find((v) => v.key === decisionThisRound?.variantKey) ?? null;
+  // шаги выбранного варианта, которых нет в API X-Lance, — команда делает их сама
+  const manualSteps = decidedVariant?.actions?.flatMap((a) => (a.type === 'manual' ? [a.text] : [])) ?? [];
+
+  const retrySync = (keys: string[]) =>
+    decidedCard && decidedVariant && decisionThisRound
+      ? syncDecisionToXl(
+          {
+            teamId: project.id,
+            card: decidedCard,
+            variant: decidedVariant,
+            decision: decisionThisRound,
+            satisfactionBefore: team.satisfaction - decisionThisRound.deltaSatisfaction,
+          },
+          new Set(keys),
+        )
+      : Promise.resolve();
 
   const chooseVariant = (variant: Variant) => {
     if (!card) return;
@@ -163,9 +181,11 @@ export default function TeamRoundPage() {
   };
 
   return (
-    <>
+    // На широких экранах страница занимает ровно высоту окна: шапка и план — по содержимому,
+    // карточки — всё оставшееся место.
+    <div className="flex flex-col gap-[var(--ui-gap)] lg:h-full lg:min-h-0">
       {/* ------------------------------ шапка ---------------------------------- */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-muted">
           <span>
             Раунд {state.round} / {state.roundCount}
@@ -174,7 +194,7 @@ export default function TeamRoundPage() {
           <span>
             Команда {idx + 1} / {state.teamOrder.length}
           </span>
-          <span className="ml-2 hidden rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted sm:inline">
+          <span className="ml-2 hidden rounded-full border border-line px-2.5 py-0.5 text-caption font-semibold text-muted sm:inline">
             X-Lance: {ROUND_XLANCE_ACTION[round]}
           </span>
         </div>
@@ -362,58 +382,94 @@ export default function TeamRoundPage() {
       {/* </div>  */}
 
       {/* ------------------------------- карточки ------------------------------- */}
-      <section className="mt-5 rounded-2xl border border-line bg-card p-5">
-        <h3 className="mb-1 text-sm font-extrabold text-strong">Карточка раунда</h3>
-        <p className="mb-4 text-sm text-muted">
-          Четыре карты лежат рубашкой вверх. Выберите ровно одну — она развернётся, и вы примете
-          решение.
-        </p>
+      <section className="flex flex-col rounded-2xl border border-line bg-card p-4 lg:min-h-0 lg:flex-1">
+        <div className="mb-3 flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 className="text-sm font-extrabold text-strong">Карточка раунда</h3>
+          <p className="text-sm text-muted">
+            {roundDecision && decisionThisRound
+              ? 'Решение по раунду принято.'
+              : card
+                ? 'Обсудите варианты и выберите один — он изменит срок, бюджет или удовлетворённость.'
+                : 'Четыре карты лежат рубашкой вверх. Выберите ровно одну — она развернётся, и вы примете решение.'}
+          </p>
+        </div>
 
-        {roundDecision && decisionThisRound ? (
-          <div className="rounded-xl border border-ok/40 bg-ok/10 p-5 text-center">
-            <p className="mb-1 text-xs uppercase tracking-wide text-muted">Решение принято</p>
-            <p className="mb-2 font-semibold text-strong">
-              «{decisionThisRound.cardTitle}» → вариант {decisionThisRound.variantKey}:{' '}
-              {decisionThisRound.variantLabel}
-            </p>
-            <div className="mb-5 flex flex-wrap justify-center gap-2 text-xs">
-              {decisionThisRound.deltaDays !== 0 && (
-                <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
-                  {formatSignedDays(decisionThisRound.deltaDays)} к сроку
-                </span>
+        {/* карты растягиваются на оставшуюся высоту; длинная развёрнутая карта прокручивается внутри */}
+        <div className="flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
+          {roundDecision && decisionThisRound ? (
+            <div data-testid="decision-done" className="rounded-xl border border-ok/40 bg-ok/10 p-5 text-center">
+              <p className="mb-1 text-caption uppercase tracking-wide text-muted">Решение принято</p>
+              <p className="mb-2 font-semibold text-strong">
+                «{decisionThisRound.cardTitle}» → вариант {decisionThisRound.variantKey}:{' '}
+                {decisionThisRound.variantLabel}
+              </p>
+              <div className="mb-5 flex flex-wrap justify-center gap-2 text-sm">
+                {decisionThisRound.deltaDays !== 0 && (
+                  <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
+                    {formatSignedDays(decisionThisRound.deltaDays)} к сроку
+                  </span>
+                )}
+                {decisionThisRound.deltaCost !== 0 && (
+                  <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
+                    {formatSignedRub(decisionThisRound.deltaCost)} расход
+                  </span>
+                )}
+                {decisionThisRound.deltaRevenue !== 0 && (
+                  <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
+                    {formatSignedRub(decisionThisRound.deltaRevenue)} доход
+                  </span>
+                )}
+                {decisionThisRound.deltaSatisfaction !== 0 && (
+                  <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
+                    {formatSignedPct(decisionThisRound.deltaSatisfaction)} удовл.
+                  </span>
+                )}
+              </div>
+              {decidedCard ? (
+                <SyncStatus teamId={project.id} round={round} onRetry={retrySync} />
+              ) : (
+                <div className="mx-auto mb-5 max-w-xl rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm text-warn">
+                  Решение принято по карточке не из колоды (сохранённая старая сессия) — его финансы в
+                  X-Lance не заведены. Начните новую игру на странице настройки.
+                </div>
               )}
-              {decisionThisRound.deltaCost !== 0 && (
-                <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
-                  {formatSignedRub(decisionThisRound.deltaCost)} расход
-                </span>
-              )}
-              {decisionThisRound.deltaRevenue !== 0 && (
-                <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
-                  {formatSignedRub(decisionThisRound.deltaRevenue)} доход
-                </span>
-              )}
-              {decisionThisRound.deltaSatisfaction !== 0 && (
-                <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
-                  {formatSignedPct(decisionThisRound.deltaSatisfaction)} удовл.
-                </span>
-              )}
+              {manualSteps.length > 0 ? (
+                <div className="mx-auto mb-5 max-w-xl rounded-lg border border-line bg-card px-4 py-3 text-left text-sm">
+                  <p className="mb-1 text-caption font-semibold uppercase tracking-wide text-muted">
+                    Сделать в X-Lance вручную
+                  </p>
+                  <ul className="space-y-0.5 text-body">
+                    {manualSteps.map((step) => (
+                      <li key={step} className="flex gap-1.5">
+                        <span className="text-faint">→</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                data-testid="next-step"
+                onClick={goNext}
+                className="rounded-full bg-brand px-8 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
+              >
+                {isLastTeam ? 'К табло результатов →' : 'Следующая команда →'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={goNext}
-              className="rounded-full bg-brand px-8 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
+          ) : card ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col lg:min-h-0 lg:flex-1"
             >
-              {isLastTeam ? 'К табло результатов →' : 'Следующая команда →'}
-            </button>
-          </div>
-        ) : card ? (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <CardDetail card={card} accent={project.accent} onChoose={chooseVariant} />
-          </motion.div>
-        ) : (
-          <CardGrid cards={deck} accent={project.accent} onPick={setPickedCardId} />
-        )}
+              <CardDetail card={card} accent={project.accent} onChoose={chooseVariant} />
+            </motion.div>
+          ) : (
+            <CardGrid accent={project.accent} onPick={setPickedCardId} />
+          )}
+        </div>
       </section>
-    </>
+    </div>
   );
 }

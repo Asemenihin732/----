@@ -102,7 +102,7 @@ export default function ResultsPage() {
               <p className="mb-3 text-sm text-body">{analysis.headline}</p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="mb-1.5 text-[11px] uppercase tracking-wide text-emerald-500">
+                  <p className="mb-1.5 text-caption uppercase tracking-wide text-emerald-500">
                     Что сработало
                   </p>
                   <ul className="space-y-1.5">
@@ -115,7 +115,7 @@ export default function ResultsPage() {
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-1.5 text-[11px] uppercase tracking-wide text-amber-500">
+                  <p className="mb-1.5 text-caption uppercase tracking-wide text-amber-500">
                     Что усилить в следующий раз
                   </p>
                   <ul className="space-y-1.5">
@@ -149,7 +149,7 @@ export default function ResultsPage() {
 function Nomination({ title, value, sub }: { title: string; value: string; sub: string }) {
   return (
     <div className="rounded-xl border border-line bg-card p-4 text-center">
-      <div className="mb-1 text-[11px] uppercase tracking-wide text-muted">{title}</div>
+      <div className="mb-1 text-caption uppercase tracking-wide text-muted">{title}</div>
       <div className="font-semibold text-strong">{value}</div>
       <div className="mt-0.5 text-xs text-muted">{sub}</div>
     </div>

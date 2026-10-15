@@ -7,3 +7,6 @@ dist-ssr
 !.env.example
 *.log
 .tmp-test
+# e2e: сессия входа и результаты прогонов
+e2e/.auth
+e2e/results

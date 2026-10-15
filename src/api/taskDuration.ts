@@ -26,7 +26,7 @@ import type { DurationChangeResult } from './types';
 const PLACEHOLDER_TASK_NAMES = new Set(['запрос на изменение']);
 
 /** Нормализованное имя задачи: регистр, «ё», кавычки, кратные пробелы. */
-const normalizeTaskName = (name: string): string =>
+export const normalizeTaskName = (name: string): string =>
   name
     .trim()
     .toLowerCase()
@@ -50,17 +50,35 @@ function findTaskByName(list: TaskInfo[], taskName: string | null): TaskInfo | u
   );
 }
 
-/** Назначения задачи в формате входа `updateTask` (без изменений). */
-function toAssignmentInputs(task: TaskInfo): AssignmentInput[] {
-  return (task.assignments ?? []).map((a) => ({
+const HOURS_PER_DAY = 8;
+
+/**
+ * Загрузка (`units`, %) под заданную работу и длительность. X-Lance при смене
+ * длительности держит загрузку и пересчитывает от неё работу (8 ч × 100% на 2 дня
+ * = 16 ч — стоимость растёт). Передавая загрузку явно, сохраняем работу:
+ * 8 ч на 2 дня = 50%. Проверено на dev-стенде.
+ */
+export function withUnits(assignments: AssignmentInput[], durationDays: number | null | undefined): AssignmentInput[] {
+  return assignments.map((a) => ({
     resourceId: a.resourceId,
-    units: a.units ?? undefined,
-    planWork: a.planWork ?? undefined,
+    planWork: a.planWork,
+    units:
+      durationDays && durationDays > 0 && a.planWork !== undefined
+        ? (a.planWork / (durationDays * HOURS_PER_DAY)) * 100
+        : undefined,
   }));
 }
 
+/** Назначения задачи в формате входа `updateTask` с загрузкой под её длительность. */
+export function toAssignmentInputs(task: TaskInfo, durationDays = task.duration): AssignmentInput[] {
+  return withUnits(
+    (task.assignments ?? []).map((a) => ({ resourceId: a.resourceId, planWork: a.planWork ?? undefined })),
+    durationDays,
+  );
+}
+
 /** Предшественники задачи в формате входа `updateTask` (без изменений). */
-function toPredecessorInputs(task: TaskInfo): PredecessorInput[] {
+export function toPredecessorInputs(task: TaskInfo): PredecessorInput[] {
   return (task.predecessors ?? []).map((p) => ({
     predecessorId: p.predecessorId,
     type: p.type,
@@ -109,7 +127,7 @@ export async function changeTaskDurationViaXl(
     contentVersion: fresh.contentVersion ?? 0,
     scheduleVersion: fresh.scheduleVersion ?? 0,
     duration: next,
-    assignments: toAssignmentInputs(fresh),
+    assignments: toAssignmentInputs(fresh, next),
     predecessors: toPredecessorInputs(fresh),
   });
 
