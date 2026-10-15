@@ -83,13 +83,24 @@ export interface TaskInfo {
   statusId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** Длительность задачи, дн. */
+  duration?: number | null;
   parentId?: string | null;
   isSummary?: boolean;
   isMilestone?: boolean;
   childrenIds?: string[];
+  assignments?: AssignmentInfo[] | null;
   predecessors?: PredecessorInfo[];
   contentVersion?: number;
   scheduleVersion?: number;
+}
+
+/** Назначение ресурса на задачу (как отдаёт X-Lance). */
+export interface AssignmentInfo {
+  id?: string;
+  resourceId: string;
+  planWork?: number | null;
+  units?: number | null;
 }
 
 export interface AssignmentInput {
@@ -487,12 +498,19 @@ const TASK_FIELDS = /* GraphQL */ `
   statusId
   startDate
   endDate
+  duration
   parentId
   isSummary
   isMilestone
   childrenIds
   contentVersion
   scheduleVersion
+  assignments {
+    id
+    resourceId
+    planWork
+    units
+  }
   predecessors {
     predecessorId
     type

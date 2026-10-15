@@ -43,6 +43,18 @@ export interface XlGanttTask {
   dependsOn: string[];
 }
 
+/** Результат изменения длительности задачи работ (Ганта / таск-трекинг). */
+export interface DurationChangeResult {
+  /** Удалось ли применить изменение (в X-Lance или демо-плане) */
+  changed: boolean;
+  taskId?: string;
+  taskName?: string;
+  /** Новая длительность задачи, дн. */
+  duration?: number;
+  /** Пояснение: почему не применено или куда применено (край проекта) */
+  reason?: string;
+}
+
 /* ---------------------------------- ресурсы --------------------------------- */
 
 export interface XlResource {

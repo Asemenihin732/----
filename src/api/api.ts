@@ -13,8 +13,16 @@
 import { apiConfig, configWarnings, isMockMode } from './config';
 import { http } from './http';
 import { mockBackend } from './mockBackend';
+import {
+  approveChangeRequest,
+  createChangeRequest,
+  rejectChangeRequest,
+  type ChangeRequestPayload,
+} from './changeRequests';
+import { changeTaskDurationViaXl } from './taskDuration';
 import type {
   DeviationRow,
+  DurationChangeResult,
   XlBaselinePlan,
   XlChangeRequest,
   XlCompetence,
@@ -82,6 +90,18 @@ export const api = {
       isMockMode() ? mockBackend.ganttTasks(projectId) : http.post<XlGanttTask[]>(`/projects/${projectId}/gantt/recalc`),
   },
 
+  /* --------------------------------- задачи ---------------------------------- */
+  tasks: {
+    /**
+     * Изменить длительность задачи работ (решение команды по карточке).
+     * mock — сдвигает демо-Ганту; http — обновляет задачу в X-Lance (`updateTask`).
+     */
+    changeDuration: (teamId: TeamId, taskName: string | null, deltaDays: number): Promise<DurationChangeResult> =>
+      isMockMode()
+        ? mockBackend.applyDurationDelta(teamId, taskName, deltaDays)
+        : changeTaskDurationViaXl(teamId, taskName, deltaDays),
+  },
+
   /* -------------------------------- ресурсы ---------------------------------- */
   resources: {
     list: (projectId: TeamId): Promise<XlResource[]> =>
@@ -110,28 +130,11 @@ export const api = {
         ? mockBackend.listChangeRequests(projectId)
         : http.get<XlChangeRequest[]>('/change-requests', { projectId }),
 
-    create: (payload: {
-      projectId: TeamId;
-      cardId: string;
-      cardTitle: string;
-      optionTitle: string;
-      deltaDays: number;
-      deltaCost: number;
-      deltaIncome: number;
-    }): Promise<XlChangeRequest> =>
-      isMockMode()
-        ? mockBackend.createChangeRequest(payload)
-        : http.post<XlChangeRequest>('/change-requests', payload),
+    create: (payload: ChangeRequestPayload): Promise<XlChangeRequest> => createChangeRequest(payload),
 
-    approve: (id: string, comment?: string): Promise<XlChangeRequest> =>
-      isMockMode()
-        ? mockBackend.approveChangeRequest(id, comment)
-        : http.post<XlChangeRequest>(`/change-requests/${id}/approve`, { comment }),
+    approve: (id: string, comment?: string): Promise<XlChangeRequest> => approveChangeRequest(id, comment),
 
-    reject: (id: string, comment?: string): Promise<XlChangeRequest> =>
-      isMockMode()
-        ? mockBackend.rejectChangeRequest(id, comment)
-        : http.post<XlChangeRequest>(`/change-requests/${id}/reject`, { comment }),
+    reject: (id: string, comment?: string): Promise<XlChangeRequest> => rejectChangeRequest(id, comment),
   },
 
   /* --------------------------------- финансы --------------------------------- */

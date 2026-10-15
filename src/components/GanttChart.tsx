@@ -13,7 +13,7 @@ export default function GanttChart({
   baseDays: number;
   actualDays: number;
 }) {
-  const maxDay = Math.max(baseDays, Math.ceil(actualDays), ...tasks.map((t) => t.endDay), 1);
+  const maxDay = Math.max(baseDays, Math.ceil(actualDays), ...tasks.map((t) => Math.ceil(t.endDay)), 1);
   const cols = `minmax(150px, 1.5fr) repeat(${maxDay}, minmax(26px, 1fr))`;
 
   return (

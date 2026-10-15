@@ -81,13 +81,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const sidebar = (
     <div className="flex h-full flex-col bg-shell text-shelltext">
       <div className="flex items-center gap-2.5 px-4 py-4">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand to-shell text-sm font-black text-white">
-          X
-        </span>
-        <span className="leading-tight">
-          <span className="block text-sm font-extrabold">X-Lance</span>
-          <span className="block text-xs text-shellmuted">Спаси конференцию!</span>
-        </span>
+        <XlanceLogo iconOnly size='sm'/>
+        {/* <span className="leading-tight"> */}
+          {/* <span className="block text-sm font-extrabold">X-Lance</span> */}
+          {/* <span className="block text-xs text-shellmuted">Спаси конференцию!</span> */}
+        {/* </span> */}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2.5">
@@ -135,7 +133,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </nav>
 
       <div className=" px-4 py-3 ">
-        <XlanceLogo/>
+        <XlanceLogo />
       </div>
        
     </div>
@@ -217,7 +215,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             ) : null}
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 rounded-2xl bg-card mb-2">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 rounded-2xl bg-card mb-2 mr-2">
           <div className="mx-auto max-w-[1180px]">{children}</div>
         </main>
       </div>

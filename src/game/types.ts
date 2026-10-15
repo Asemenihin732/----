@@ -30,6 +30,8 @@ export interface Variant {
   deltaSatisfaction?: number;
   /** Вариант требует оформления запроса на изменение */
   isChangeRequest?: boolean;
+  /** Задача работ, у которой меняется длительность (имя задачи из плана X-Lance) */
+  targetTask?: string;
   /** Краткое описание действия в X-Lance */
   xlanceAction: string;
   /** Пошаговый чек-лист действий в X-Lance (из колоды 18 карт) */
@@ -76,6 +78,8 @@ export interface RoundDecision {
   deltaSatisfaction: number;
   isChangeRequest: boolean;
   hadChangeRequestOption: boolean;
+  /** Задача, у которой менялась длительность (если применимо) */
+  targetTask?: string;
 }
 
 /** Текущее состояние команды: базовый и фактический план */

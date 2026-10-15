@@ -9,6 +9,7 @@ import { rankTeams, teamTotals } from '../game/engine';
 import type { SessionState, TeamProgress } from '../game/types';
 import type {
   DeviationRow,
+  DurationChangeResult,
   XlBaselinePlan,
   XlBudgetLine,
   XlChangeRequest,
@@ -32,6 +33,15 @@ interface MockDb {
   changeRequests: XlChangeRequest[];
   syncLog: XlSyncLogEntry[];
   workspace: XlWorkspaceInfo | null;
+  /** Правки длительности задач, накопленные решениями команд */
+  durationDeltas: DurationDeltaEntry[];
+}
+
+/** Правка длительности: +N дней к задаче (или ко всему проекту, если имя пустое). */
+interface DurationDeltaEntry {
+  teamId: string;
+  taskName: string | null;
+  deltaDays: number;
 }
 
 function loadGame(): SessionState | null {
@@ -46,7 +56,11 @@ function loadGame(): SessionState | null {
 function loadDb(): MockDb {
   try {
     const raw = localStorage.getItem(MOCK_KEY);
-    if (raw) return JSON.parse(raw) as MockDb;
+    if (raw) {
+      const parsed = JSON.parse(raw) as MockDb;
+      if (!Array.isArray(parsed.durationDeltas)) parsed.durationDeltas = [];
+      return parsed;
+    }
   } catch {
     /* ignore */
   }
@@ -66,6 +80,7 @@ function loadDb(): MockDb {
     changeRequests: [],
     syncLog: [],
     workspace: null,
+    durationDeltas: [],
   };
   saveDb(db);
   return db;
@@ -97,21 +112,75 @@ const toWorks = (projectId: TeamId): XlBaselinePlan => {
   };
 };
 
-const toGantt = (projectId: TeamId): XlGanttTask[] => {
+/** Имена-заглушки: «запрос на изменение» не является задачей плана. */
+const PLACEHOLDER_TASK_NAMES = new Set(['запрос на изменение']);
+
+/** Нормализованное имя задачи для сравнения (регистр, «ё», кавычки, пробелы). */
+const normalizeTaskName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[«»"']/g, '')
+    .replace(/\s+/g, ' ');
+
+/** Ганта по базовому плану проекта — без учёта решений команд. */
+const buildPlanGantt = (projectId: TeamId): XlGanttTask[] => {
   const plan = toWorks(projectId);
   return plan.works.map((w, i) => {
     const days = (w.period.match(/\d+/g) ?? ['1']).map(Number);
-    const start = Math.min(...days);
-    const end = Math.max(...days);
     return {
       id: w.id,
       name: w.task,
-      startDay: start,
-      endDay: end,
+      startDay: Math.min(...days),
+      endDay: Math.max(...days),
       critical: w.note === 'критический путь' || w.note === 'точка невозврата' || w.note === 'внешняя зависимость',
       dependsOn: i > 0 ? [plan.works[i - 1].id] : [],
     };
   });
+};
+
+/**
+ * Индекс задачи, к которой относится правка длительности.
+ * `-1` — конкретной задачи нет (запрос на изменение, пустое или неизвестное имя):
+ * тогда продлевается весь проект.
+ */
+function findDurationTargetIndex(tasks: XlGanttTask[], taskName: string | null): number {
+  const norm = taskName ? normalizeTaskName(taskName) : '';
+  if (!norm || PLACEHOLDER_TASK_NAMES.has(norm)) return -1;
+  const exact = tasks.findIndex((t) => normalizeTaskName(t.name) === norm);
+  if (exact !== -1) return exact;
+  return tasks.findIndex(
+    (t) => normalizeTaskName(t.name).includes(norm) || norm.includes(normalizeTaskName(t.name)),
+  );
+}
+
+/** Правка длительности: задаче продлеваем конец, следующие сдвигаем; -1 — весь проект. */
+function applyDeltaToTasks(tasks: XlGanttTask[], index: number, deltaDays: number): void {
+  if (!deltaDays) return;
+  if (index === -1) {
+    for (const t of tasks) {
+      t.startDay = Math.max(1, t.startDay + deltaDays);
+      t.endDay = Math.max(1, t.endDay + deltaDays);
+    }
+    return;
+  }
+  const target = tasks[index];
+  target.endDay = Math.max(target.startDay, target.endDay + deltaDays);
+  for (let i = index + 1; i < tasks.length; i++) {
+    tasks[i].startDay = Math.max(1, tasks[i].startDay + deltaDays);
+    tasks[i].endDay = Math.max(1, tasks[i].endDay + deltaDays);
+  }
+}
+
+/** Ганта проекта с учётом решений команд (накопленных правок длительности). */
+const toGantt = (projectId: TeamId): XlGanttTask[] => {
+  const tasks = buildPlanGantt(projectId);
+  for (const delta of loadDb().durationDeltas) {
+    if (delta.teamId !== projectId) continue;
+    applyDeltaToTasks(tasks, findDurationTargetIndex(tasks, delta.taskName), delta.deltaDays);
+  }
+  return tasks;
 };
 
 const toResources = (projectId: TeamId): XlResource[] => {
@@ -273,6 +342,37 @@ export const mockBackend = {
     if (!task) throw new Error(`Задача не найдена: ${taskId}`);
     const shifted = { ...task, startDay: task.startDay + days, endDay: task.endDay + days };
     return wait(shifted);
+  },
+
+  /**
+   * Изменить длительность задачи работ: правка сохраняется в демо-БД и
+   * учитывается при построении Ганты (`toGantt`). Имя задачи может быть
+   * пустым — тогда продлевается проект целиком.
+   */
+  async applyDurationDelta(
+    projectId: TeamId,
+    taskName: string | null,
+    deltaDays: number,
+  ): Promise<DurationChangeResult> {
+    if (!deltaDays) return wait({ changed: false, reason: 'Изменение длительности не требуется' });
+
+    // Куда ляжет правка — считаем по текущему плану (до записи новой правки),
+    // а новую длительность берём уже из Ганты с учётом всех правок.
+    const index = findDurationTargetIndex(buildPlanGantt(projectId), taskName);
+    const db = loadDb();
+    db.durationDeltas = [...db.durationDeltas, { teamId: projectId, taskName, deltaDays }];
+    saveDb(db);
+
+    const tasks = toGantt(projectId);
+    const target = tasks[index === -1 ? tasks.length - 1 : index];
+    if (!target) return wait({ changed: false, reason: 'В проекте нет задач' });
+    return wait({
+      changed: true,
+      taskId: target.id,
+      taskName: target.name,
+      duration: target.endDay - target.startDay + 1,
+      reason: index === -1 ? 'Проект продлён целиком (задача не указана)' : undefined,
+    });
   },
 
   /* -------------------------------- ресурсы --------------------------------- */

@@ -27,9 +27,9 @@ import {
   teamTotals,
 } from '../game/engine';
 import { api } from '../api/api';
-import { MODULE_LABELS, moduleForAction } from '../api/config';
+import { syncDecisionToXl } from '../api/decisionSync';
 import { ROUND_XLANCE_ACTION } from '../data/gameData';
-import type { Card, Variant } from '../game/types';
+import type { Card, RoundDecision, Variant } from '../game/types';
 import type { XlFinance, XlGanttTask, XlIndicator, XlResource } from '../api/types';
 
 type Round = 1 | 2 | 3;
@@ -151,36 +151,29 @@ export default function TeamRoundPage() {
 
   const chooseVariant = (variant: Variant) => {
     if (!card) return;
-    dispatch({
-      type: 'submit',
-      teamId: project.id,
-      decision: {
-        round,
-        cardTitle: card.title,
-        category: card.category,
-        variantKey: variant.key,
-        variantLabel: variant.label,
-        deltaDays: variant.deltaDays ?? 0,
-        deltaCost: variant.deltaCost ?? 0,
-        deltaRevenue: variant.deltaRevenue ?? 0,
-        deltaSatisfaction: variant.deltaSatisfaction ?? 0,
-        isChangeRequest: Boolean(variant.isChangeRequest),
-        hadChangeRequestOption: card.variants.some((v) => v.isChangeRequest),
-      },
-    });
+    const decision: RoundDecision = {
+      round,
+      cardTitle: card.title,
+      category: card.category,
+      variantKey: variant.key,
+      variantLabel: variant.label,
+      deltaDays: variant.deltaDays ?? 0,
+      deltaCost: variant.deltaCost ?? 0,
+      deltaRevenue: variant.deltaRevenue ?? 0,
+      deltaSatisfaction: variant.deltaSatisfaction ?? 0,
+      isChangeRequest: Boolean(variant.isChangeRequest),
+      hadChangeRequestOption: card.variants.some((v) => v.isChangeRequest),
+      targetTask: variant.targetTask,
+    };
+    dispatch({ type: 'submit', teamId: project.id, decision });
     // фиксируем действие в X-Lance (mock/http — по режиму)
-    const module = MODULE_LABELS[moduleForAction(card.id)];
-    api.sync.log(project.id, module, `${card.title}: вариант ${variant.key} — ${variant.label}`, true, {
-      days: variant.deltaDays ?? 0,
-      cost: variant.deltaCost ?? 0,
-      income: variant.deltaRevenue ?? 0,
-      satisfaction: variant.deltaSatisfaction ?? 0,
+    void syncDecisionToXl({
+      teamId: project.id,
+      card,
+      variant,
+      decision,
+      satisfactionBefore: team.satisfaction,
     });
-    void api.indicators.setValue(
-      project.id,
-      'customer-satisfaction',
-      team.satisfaction + (variant.deltaSatisfaction ?? 0),
-    );
     setPickedCardId(null);
   };
 
