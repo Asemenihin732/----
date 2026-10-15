@@ -6,26 +6,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import GanttChart from '../components/GanttChart';
 import { PlanBudgetPanel } from '../components/PlanBudgetPanel';
 import { CardGrid } from '../components/CardGrid';
 import { CardDetail } from '../components/CardDetail';
-import { StatBox } from '../components/ui';
 import { getProject, type TeamId } from '../data/projects';
 import { cardsFor } from '../data/cards';
 import { designatedCard } from '../data/deck';
 import { useSession } from '../game/store';
-import {
-  formatDeltaDays,
-  formatDeltaMoney,
-  formatDays,
-  formatMoney,
-  formatPct,
-  formatSignedDays,
-  formatSignedPct,
-  formatSignedRub,
-  teamTotals,
-} from '../game/engine';
+import { formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
 import { api } from '../api/api';
 import { syncDecisionToXl } from '../api/decisionSync';
 import { ROUND_XLANCE_ACTION } from '../data/gameData';
@@ -63,10 +51,10 @@ export default function TeamRoundPage() {
   const team = inSession ? state.teams[id] : null;
   const project = inSession ? getProject(id) : null;
 
-  const [gantt, setGantt] = useState<XlGanttTask[] | null>(null);
-  const [resources, setResources] = useState<XlResource[] | null>(null);
-  const [finance, setFinance] = useState<XlFinance | null>(null);
-  const [indicators, setIndicators] = useState<XlIndicator[] | null>(null);
+  const [, setGantt] = useState<XlGanttTask[] | null>(null);
+  const [, setResources] = useState<XlResource[] | null>(null);
+  const [, setFinance] = useState<XlFinance | null>(null);
+  const [, setIndicators] = useState<XlIndicator[] | null>(null);
   const [pickedCardId, setPickedCardId] = useState<string | null>(null);
 
   const round = state.round as Round;
@@ -144,9 +132,6 @@ export default function TeamRoundPage() {
     );
   }
 
-  const totals = teamTotals(project.id, team);
-  const satisfaction =
-    indicators?.find((i) => i.key === 'customer-satisfaction')?.value ?? team.satisfaction;
   const decisionThisRound = team.decisions.find((d) => d.round === round) ?? null;
 
   const chooseVariant = (variant: Variant) => {
@@ -166,7 +151,7 @@ export default function TeamRoundPage() {
       targetTask: variant.targetTask,
     };
     dispatch({ type: 'submit', teamId: project.id, decision });
-    // фиксируем действие в X-Lance (mock/http — по режиму)
+    // фиксируем действие в X-Lance
     void syncDecisionToXl({
       teamId: project.id,
       card,
@@ -371,7 +356,6 @@ export default function TeamRoundPage() {
             ) : null}
             <p className="mt-3 text-xs text-muted">
               Действие в X-Lance за раунд: {ROUND_XLANCE_ACTION[round]}
-              {api.meta.isMock ? ' · демо-режим' : ''}
             </p>
           </section>
         </div> */}
@@ -431,19 +415,5 @@ export default function TeamRoundPage() {
         )}
       </section>
     </>
-  );
-}
-
-/* ----------------------------- подкомпоненты ------------------------------- */
-
-function FinRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-sm text-muted">{label}</span>
-      <span className="flex items-baseline gap-2">
-        {hint ? <span className="text-xs text-muted">{hint}</span> : null}
-        <span className="font-extrabold text-strong">{value}</span>
-      </span>
-    </div>
   );
 }

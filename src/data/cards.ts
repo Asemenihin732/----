@@ -964,21 +964,6 @@ const universal: Card[] = [
   ]),
 ]
 
-const bonus: Card[] = [
-  card('universal', null, 'BONUS', 'Сарафанное радио сработало', 'Довольный смежный заказчик рекомендовал вас коллегам.', [
-    v('A', 'Принять', 'Финансы: провести дополнительный доход.', { deltaRevenue: 50_000, deltaSatisfaction: 5 }),
-  ]),
-  card('universal', null, 'BONUS', 'Команда нашла способ быстрее', 'Кто-то предложил переставить два этапа местами. Все удивились, что не догадались раньше.', [
-    v('A', 'Принять', 'Диаграмма Ганта: сократить длительность.', { deltaDays: -1 }),
-  ]),
-  card('universal', null, 'BONUS', 'Стажёр оказался гением', 'Взяли на подхват, а он за вечер автоматизировал половину рутины.', [
-    v('A', 'Принять', 'Ресурсный план: пересчёт трудозатрат.', { deltaCost: -20_000, deltaSatisfaction: 5 }),
-  ]),
-  card('universal', null, 'BONUS', 'Заказчик похвалил вас публично', 'Написал пост о том, как приятно с вами работать. Пост собрал больше охвата, чем анонс конференции.', [
-    v('A', 'Принять', 'Отчёты о статусе: зафиксировать обратную связь.', { deltaSatisfaction: 10 }),
-  ]),
-]
-
 export const allCards: Card[] = [
   ...catering,
   ...stage,
@@ -987,11 +972,9 @@ export const allCards: Card[] = [
   ...logistics,
   ...afterparty,
   ...universal,
-  ...bonus,
 ]
 
 export const cardsFor = (team: TeamId, round: RoundNumber): Card[] =>
   allCards.filter((c) => c.team === team && c.round === round)
 
 export const universalCards = () => allCards.filter((c) => c.category === 'UNIVERSAL')
-export const bonusCards = () => allCards.filter((c) => c.category === 'BONUS')

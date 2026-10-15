@@ -114,7 +114,7 @@ export interface TeamTotals {
   index: number;
 }
 
-/** Итоги команды по её прогрессу (совместимо с mock-бэкендом и отчётами) */
+/** Итоги команды по её прогрессу (совместимо с отчётами) */
 export function teamTotals(teamId: TeamId, progress: TeamProgress): TeamTotals {
   const project = getProject(teamId);
   const baseDays = progress.baseDurationDays ?? project.baseDurationDays;

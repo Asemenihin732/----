@@ -28,7 +28,7 @@ function RootRoute() {
   const [params] = useSearchParams();
 
   useEffect(() => {
-    // демо-режим: /?seed=1 — сразу начать сессию из двух команд и двух раундов
+    // быстрый старт: /?seed=1 — сразу начать сессию из двух команд и двух раундов
     if (params.get('seed') === '1' && state.teamOrder.length === 0) {
       dispatch({ type: 'configure', roundCount: 2, teamIds: ['catering', 'stage'] });
     }

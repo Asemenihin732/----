@@ -1,6 +1,6 @@
 /**
  * Конфигурация API-слоя X-Lance.
- * Все URL и токены читаются из .env (переменные VITE_*).
+ * URL, токен и workspace читаются из .env (переменные VITE_*).
  */
 import { allCards } from '../data/cards';
 
@@ -11,14 +11,10 @@ function findCard(cardId: string) {
 
 const env = import.meta.env;
 
-export type ApiMode = 'mock' | 'http';
-
 export const apiConfig = {
-  /** mock — демо-данные в localStorage; http — реальный X-Lance API */
-  mode: (env.VITE_API_MODE ?? 'mock') as ApiMode,
-  /** Базовый URL X-Lance API */
+  /** GraphQL-эндпоинт X-Lance */
   baseUrl: env.VITE_XLANCE_API_URL ?? '',
-  /** Bearer-токен */
+  /** Bearer-токен (опционально: авторизация выполняется в UI) */
   token: env.VITE_XLANCE_API_TOKEN ?? '',
   /** ID рабочего пространства */
   workspaceId: env.VITE_XLANCE_WORKSPACE_ID ?? '',
@@ -26,15 +22,10 @@ export const apiConfig = {
   appTitle: env.VITE_APP_TITLE ?? 'X-Lance · Спаси конференцию!',
 } as const;
 
-export const isMockMode = (): boolean => apiConfig.mode !== 'http';
-
 /** Проблемы конфигурации для показа в UI */
 export function configWarnings(): string[] {
   const warnings: string[] = [];
-  if (apiConfig.mode === 'http') {
-    if (!apiConfig.baseUrl) warnings.push('VITE_XLANCE_API_URL не задан — запросы к API упадут.');
-    if (!apiConfig.token) warnings.push('VITE_XLANCE_API_TOKEN не задан — будет ошибка авторизации.');
-  }
+  if (!apiConfig.baseUrl) warnings.push('VITE_XLANCE_API_URL не задан — запросы к API упадут.');
   return warnings;
 }
 

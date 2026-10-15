@@ -163,25 +163,6 @@ const DECK: DeckEntry[] = [
   },
   {
     team: 'stage',
-    round: 2,
-    title: 'Саундчек со звёздным гостем',
-    description:
-      'На саундчек случайно заглянул известный рок-гитарист, послушал зал и подсказал, как убрать фон. Оставил автограф на пульте, который теперь никто не решается мыть.',
-    variants: {
-      A: {
-        label: 'Принять',
-        deltaCost: { taskName: 'Звукорежиссёр', cost: -15_000 },
-        deltaSatisfaction: 10,
-        steps: [
-          'Уменьшить расход по статье «Звукорежиссёр» на 15 000 ₽ (ночная смена инженера не нужна)',
-          'Повысить удовлетворённость заказчика на 10 п.п.',
-          'Прикрепить к задаче «Технический прогон» фото автографа',
-        ],
-      },
-    },
-  },
-  {
-    team: 'stage',
     round: 3,
     title: 'На прогоне фонит звук',
     description:
@@ -412,24 +393,6 @@ const DECK: DeckEntry[] = [
   },
   {
     team: 'logistics',
-    round: 1,
-    title: 'Автобус-экскурсовод',
-    description:
-      'Водитель, который двенадцать лет возит туристов, по дороге так увлекательно рассказал гостям о городе, что трое попросили включить это в программу. Все приехали вовремя и с настроением.',
-    variants: {
-      A: {
-        label: 'Принять',
-        deltaSatisfaction: 5,
-        steps: [
-          'Провести дополнительный доход «Партнёрская экскурсия» 25 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-          'Добавить в базу знаний заметку «Водителей брифовать на городские байки»',
-        ],
-      },
-    },
-  },
-  {
-    team: 'logistics',
     round: 2,
     title: 'Автобус забрендировали чужим логотипом',
     description:
@@ -595,49 +558,10 @@ const DECK: DeckEntry[] = [
   },
 ];
 
-const BONUS_CARDS: Card[] = [
-  {
-    id: 'bonus-stage-soundcheck',
-    team: 'stage',
-    round: 2,
-    category: 'BONUS',
-    title: 'Саундчек со звёздным гостем',
-    flavor:
-      'На саундчек случайно заглянул известный рок-гитарист, послушал зал и подсказал, как убрать фон. Оставил автограф на пульте, который теперь никто не решается мыть.',
-    variants: [
-      {
-        key: 'A',
-        label: 'Принять',
-        xlanceAction: 'Финансы: уменьшить расход по статье «Звукорежиссёр».',
-        deltaCost: -15_000,
-        deltaSatisfaction: 10,
-      },
-    ],
-  },
-  {
-    id: 'bonus-logistics-guide',
-    team: 'logistics',
-    round: 1,
-    category: 'BONUS',
-    title: 'Автобус-экскурсовод',
-    flavor:
-      'Водитель, который двенадцать лет возит туристов, по дороге так увлекательно рассказал гостям о городе, что трое попросили включить это в программу. Все приехали вовремя и с настроением.',
-    variants: [
-      {
-        key: 'A',
-        label: 'Принять',
-        xlanceAction: 'Финансы: провести дополнительный доход.',
-        deltaRevenue: 25_000,
-        deltaSatisfaction: 5,
-      },
-    ],
-  },
-];
-
 const designated = new Map<string, Card>();
 
 for (const entry of DECK) {
-  const base = [...allCards, ...BONUS_CARDS].find(
+  const base = allCards.find(
     (c) => c.team === entry.team && c.title === entry.title,
   );
   if (!base) throw new Error(`Deck card not found: ${entry.team} ${entry.title}`);

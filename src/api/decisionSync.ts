@@ -1,7 +1,7 @@
 /**
  * decisionSync.ts — фиксация решения команды по карточке в X-Lance:
  *
- *   1. длина задачи работ   → `updateTask` (http) либо демо-Ганта (mock);
+ *   1. длина задачи работ   → `updateTask` в X-Lance;
  *   2. запрос на изменение  → оформление и утверждение у Заказчика;
  *   3. удовлетворённость    → пользовательский показатель 40–130 %;
  *   4. журнал               → запись о решении и о каждой операции.
@@ -9,6 +9,7 @@
  * Ошибки не прерывают игру: они попадают в журнал с признаком `ok: false`.
  */
 import { api } from './api';
+import { journalLog } from './journal';
 import { MODULE_LABELS, moduleForAction } from './config';
 import { clampSatisfaction, formatSignedDays } from '../game/engine';
 import type { TeamId } from '../data/projects';
@@ -23,7 +24,7 @@ export interface SyncDecisionParams {
   satisfactionBefore: number;
 }
 
-/** Зафиксировать решение команды в X-Lance (mock/http — по режиму API). */
+/** Зафиксировать решение команды в X-Lance. */
 export async function syncDecisionToXl(params: SyncDecisionParams): Promise<void> {
   const { teamId, card, variant, decision } = params;
   const module = MODULE_LABELS[moduleForAction(card.id)];
@@ -41,9 +42,9 @@ export async function syncDecisionToXl(params: SyncDecisionParams): Promise<void
     const logAction = `${action} · длительность ${taskLabel} ${formatSignedDays(decision.deltaDays)}`;
     try {
       const result = await api.tasks.changeDuration(teamId, variant.targetTask ?? null, decision.deltaDays);
-      api.sync.log(teamId, module, logAction, result.changed, { ...payload, ...result });
+      journalLog(teamId, module, logAction, result.changed, { ...payload, ...result });
     } catch (error) {
-      api.sync.log(teamId, module, logAction, false, payload, String(error));
+      journalLog(teamId, module, logAction, false, payload, String(error));
     }
   }
 
@@ -61,12 +62,12 @@ export async function syncDecisionToXl(params: SyncDecisionParams): Promise<void
         deltaIncome: decision.deltaRevenue,
       });
       await api.changeRequests.approve(request.id, 'Утверждено Заказчиком (фасилитатор)');
-      api.sync.log(teamId, MODULE_LABELS['change-requests'], `${logAction} утверждён`, true, {
+      journalLog(teamId, MODULE_LABELS['change-requests'], `${logAction} утверждён`, true, {
         ...payload,
         changeRequestId: request.id,
       });
     } catch (error) {
-      api.sync.log(teamId, MODULE_LABELS['change-requests'], logAction, false, payload, String(error));
+      journalLog(teamId, MODULE_LABELS['change-requests'], logAction, false, payload, String(error));
     }
   }
 
@@ -78,9 +79,9 @@ export async function syncDecisionToXl(params: SyncDecisionParams): Promise<void
       clampSatisfaction(params.satisfactionBefore + decision.deltaSatisfaction),
     );
   } catch (error) {
-    api.sync.log(teamId, MODULE_LABELS['custom-metrics'], `${action} · удовлетворённость`, false, payload, String(error));
+    journalLog(teamId, MODULE_LABELS['custom-metrics'], `${action} · удовлетворённость`, false, payload, String(error));
   }
 
   /* ------------------------------ 4. журнал --------------------------------- */
-  api.sync.log(teamId, module, action, true, payload);
+  journalLog(teamId, module, action, true, payload);
 }

@@ -17,7 +17,6 @@ for (const t of teams) {
 }
 
 console.log('UNIVERSAL cards'.padEnd(15), (c.match(/'UNIVERSAL'/g) || []).length);
-console.log('BONUS cards'.padEnd(15), (c.match(/'BONUS'/g) || []).length);
 console.log('TEAM TOTAL'.padEnd(15), total);
 console.log('CR options'.padEnd(15), (c.match(/isChangeRequest:\s*true/g) || []).length);
 

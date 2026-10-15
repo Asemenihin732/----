@@ -2,13 +2,12 @@ import type { Project, TeamId } from '../data/projects';
 import type { TeamProgress } from '../game/types';
 import { accentFor } from '../data/theme';
 import { formatPct, formatRub, teamTotals } from '../game/engine';
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router';
 import { useSession } from '../game/store';
 import { getProject } from '../data/projects';
 
-import type { XlFinance, XlGanttTask, XlIndicator, XlResource } from '../api/types';
-import { cardsFor } from '../data/cards';
+import type { XlGanttTask } from '../api/types';
 import { api } from '../api/api';
 import GanttChart from './GanttChart';
 
@@ -16,8 +15,6 @@ interface Props {
   project: Project;
   team: TeamProgress;
 }
-
-type Round = 1 | 2 | 3;
 
 /** Локальный фолбэк по works проекта */
 function fallbackWorks(projectId: TeamId): XlGanttTask[] {
@@ -49,22 +46,14 @@ export function PlanBudgetPanel({ project, team }: Props) {
   const incomeChanged = team.factIncome !== team.baseIncome;
 
   const { teamId } = useParams<{ teamId: string }>();
-  const navigate = useNavigate();
-  const { state, dispatch } = useSession();
+  const { state } = useSession();
 
   const id = (teamId ?? '') as TeamId;
   const inSession = state.teamOrder.includes(id);
-  
+
   const [gantt, setGantt] = useState<XlGanttTask[] | null>(null);
-  const [resources, setResources] = useState<XlResource[] | null>(null);
-  const [finance, setFinance] = useState<XlFinance | null>(null);
-  const [indicators, setIndicators] = useState<XlIndicator[] | null>(null);
-  const [pickedCardId, setPickedCardId] = useState<string | null>(null);
-  
-  const round = state.round as Round;
-  const deck = useMemo(() => cardsFor(id, round), [id, round]);
+
   const decisionsCount = team?.decisions.length ?? 0;
-  const roundDecision = decisionsCount >= round;
 
   const totals = teamTotals(project.id, team);
 

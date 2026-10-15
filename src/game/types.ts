@@ -15,8 +15,7 @@ export type CardCategory =
   | 'ZAKAZCHIK'
   | 'FORS_MAJOR'
   | 'RESURSY'
-  | 'UNIVERSAL'
-  | 'BONUS';
+  | 'UNIVERSAL';
 
 export type VariantKey = 'A' | 'B' | 'C';
 

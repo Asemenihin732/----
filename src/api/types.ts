@@ -45,7 +45,7 @@ export interface XlGanttTask {
 
 /** Результат изменения длительности задачи работ (Ганта / таск-трекинг). */
 export interface DurationChangeResult {
-  /** Удалось ли применить изменение (в X-Lance или демо-плане) */
+  /** Удалось ли применить изменение в X-Lance */
   changed: boolean;
   taskId?: string;
   taskName?: string;
@@ -157,12 +157,4 @@ export interface XlSyncLogEntry {
   payload?: Record<string, unknown>;
   ok: boolean;
   error?: string;
-}
-
-export interface XlWorkspaceInfo {
-  id: string;
-  name: string;
-  projectCount: number;
-  preparedAt: string;
-  checklist: string[];
 }

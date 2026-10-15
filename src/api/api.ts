@@ -1,18 +1,17 @@
 /**
- * api.ts — заготовка для работы с реальными данными X-Lance.
+ * api.ts — клиент X-Lance для игры.
  *
- * Каждый метод работает в одном из двух режимов (VITE_API_MODE):
- *   • mock — демо-данные (localStorage), режим по умолчанию для игры;
- *   • http — реальный X-Lance API: URL, токен и workspace из .env.
+ *   • Изменение данных (длительность задачи, запрос на изменение) выполняется
+ *     через GraphQL-мутации X-Lance.
+ *   • Чтение справочных разделов (проекты, планы, Ганта, ресурсы, финансы,
+ *     показатели, отчёты) идёт по REST-эндпоинтам разделов 6–11 методички
+ *     (`http.ts`, Bearer-токен).
  *
- * Эндпоинты в http-ветке соответствуют разделам 6–11 методички
- * (проекты, базовые планы, Ганта, ресурсы, запросы на изменения,
- * финансы, пользовательские показатели, отчёты). При появлении
- * актуальной спецификации API — правится только http-ветка.
+ * При появлении актуальной спецификации GraphQL для разделов чтения —
+ * правится только соответствующая ветка методов.
  */
-import { apiConfig, configWarnings, isMockMode } from './config';
+import { apiConfig, configWarnings } from './config';
 import { http } from './http';
-import { mockBackend } from './mockBackend';
 import {
   approveChangeRequest,
   createChangeRequest,
@@ -32,104 +31,75 @@ import type {
   XlPaymentItem,
   XlProject,
   XlResource,
-  XlSyncLogEntry,
-  XlWorkspaceInfo,
 } from './types';
 import type { TeamId } from '../data/projects';
 
-export type { DeviationRow, XlProject, XlChangeRequest, XlSyncLogEntry, XlWorkspaceInfo, XlIndicator };
+export type { DeviationRow, XlProject, XlChangeRequest, XlIndicator };
 
 /* --------------------------------- клиент ---------------------------------- */
 
 export const api = {
-  /** Текущий режим и предупреждения конфигурации */
+  /** Диагностика конфигурации */
   meta: {
-    mode: apiConfig.mode,
-    isMock: isMockMode(),
     baseUrl: apiConfig.baseUrl,
     warnings: configWarnings(),
   },
 
   /* --------------------------------- проекты -------------------------------- */
   projects: {
-    list: (): Promise<XlProject[]> =>
-      isMockMode() ? mockBackend.listProjects() : http.get<XlProject[]>('/projects'),
+    list: (): Promise<XlProject[]> => http.get<XlProject[]>('/projects'),
 
-    get: (id: string): Promise<XlProject> =>
-      isMockMode() ? mockBackend.getProject(id) : http.get<XlProject>(`/projects/${id}`),
+    get: (id: string): Promise<XlProject> => http.get<XlProject>(`/projects/${id}`),
 
-    /** Создать проект команды в демо-пространстве (раздел 7) */
     create: (teamId: TeamId, name?: string): Promise<XlProject> =>
-      isMockMode()
-        ? mockBackend.createTeamProject(teamId, name)
-        : http.post<XlProject>('/projects', { teamId, name }),
+      http.post<XlProject>('/projects', { teamId, name }),
   },
 
   /* ------------------------------ базовый план ------------------------------- */
   plans: {
     baseline: (projectId: TeamId): Promise<XlBaselinePlan> =>
-      isMockMode() ? mockBackend.baselinePlan(projectId) : http.get<XlBaselinePlan>(`/projects/${projectId}/baseline`),
+      http.get<XlBaselinePlan>(`/projects/${projectId}/baseline`),
 
     update: (projectId: TeamId, works: XlBaselinePlan['works']): Promise<XlBaselinePlan> =>
-      isMockMode()
-        ? mockBackend.baselinePlan(projectId).then((plan) => ({ ...plan, works }))
-        : http.patch<XlBaselinePlan>(`/projects/${projectId}/baseline`, { works }),
+      http.patch<XlBaselinePlan>(`/projects/${projectId}/baseline`, { works }),
   },
 
   /* ---------------------------- диаграмма Ганта ------------------------------ */
   gantt: {
     tasks: (projectId: TeamId): Promise<XlGanttTask[]> =>
-      isMockMode() ? mockBackend.ganttTasks(projectId) : http.get<XlGanttTask[]>(`/projects/${projectId}/gantt`),
+      http.get<XlGanttTask[]>(`/projects/${projectId}/gantt`),
 
     shiftTask: (projectId: TeamId, taskId: string, days: number): Promise<XlGanttTask> =>
-      isMockMode()
-        ? mockBackend.shiftTask(projectId, taskId, days)
-        : http.patch<XlGanttTask>(`/projects/${projectId}/gantt/${taskId}`, { shiftDays: days }),
+      http.patch<XlGanttTask>(`/projects/${projectId}/gantt/${taskId}`, { shiftDays: days }),
 
     recalc: (projectId: TeamId): Promise<XlGanttTask[]> =>
-      isMockMode() ? mockBackend.ganttTasks(projectId) : http.post<XlGanttTask[]>(`/projects/${projectId}/gantt/recalc`),
+      http.post<XlGanttTask[]>(`/projects/${projectId}/gantt/recalc`),
   },
 
   /* --------------------------------- задачи ---------------------------------- */
   tasks: {
-    /**
-     * Изменить длительность задачи работ (решение команды по карточке).
-     * mock — сдвигает демо-Ганту; http — обновляет задачу в X-Lance (`updateTask`).
-     */
+    /** Изменить длительность задачи работ (решение команды по карточке) — `updateTask` в X-Lance. */
     changeDuration: (teamId: TeamId, taskName: string | null, deltaDays: number): Promise<DurationChangeResult> =>
-      isMockMode()
-        ? mockBackend.applyDurationDelta(teamId, taskName, deltaDays)
-        : changeTaskDurationViaXl(teamId, taskName, deltaDays),
+      changeTaskDurationViaXl(teamId, taskName, deltaDays),
   },
 
   /* -------------------------------- ресурсы ---------------------------------- */
   resources: {
     list: (projectId: TeamId): Promise<XlResource[]> =>
-      isMockMode() ? mockBackend.listResources(projectId) : http.get<XlResource[]>(`/projects/${projectId}/resources`),
+      http.get<XlResource[]>(`/projects/${projectId}/resources`),
 
     replace: (projectId: TeamId, resourceId: string, newName: string): Promise<XlResource> =>
-      isMockMode()
-        ? mockBackend.replaceResource(projectId, resourceId, newName)
-        : http.patch<XlResource>(`/projects/${projectId}/resources/${resourceId}`, { name: newName, assignment: 'Замена' }),
+      http.patch<XlResource>(`/projects/${projectId}/resources/${resourceId}`, { name: newName, assignment: 'Замена' }),
 
     setRate: (projectId: TeamId, resourceId: string, rate: number): Promise<XlResource> =>
-      isMockMode()
-        ? mockBackend.setResourceRate(projectId, resourceId, rate)
-        : http.patch<XlResource>(`/projects/${projectId}/resources/${resourceId}`, { rate }),
+      http.patch<XlResource>(`/projects/${projectId}/resources/${resourceId}`, { rate }),
 
     matrix: (projectId: TeamId): Promise<XlCompetence[]> =>
-      isMockMode()
-        ? mockBackend.competenceMatrix(projectId)
-        : http.get<XlCompetence[]>(`/projects/${projectId}/competences`),
+      http.get<XlCompetence[]>(`/projects/${projectId}/competences`),
   },
 
   /* -------------------------- запросы на изменение --------------------------- */
   changeRequests: {
-    list: (projectId?: TeamId): Promise<XlChangeRequest[]> =>
-      isMockMode()
-        ? mockBackend.listChangeRequests(projectId)
-        : http.get<XlChangeRequest[]>('/change-requests', { projectId }),
-
     create: (payload: ChangeRequestPayload): Promise<XlChangeRequest> => createChangeRequest(payload),
 
     approve: (id: string, comment?: string): Promise<XlChangeRequest> => approveChangeRequest(id, comment),
@@ -140,73 +110,38 @@ export const api = {
   /* --------------------------------- финансы --------------------------------- */
   finance: {
     get: (projectId: TeamId): Promise<XlFinance> =>
-      isMockMode() ? mockBackend.finance(projectId) : http.get<XlFinance>(`/projects/${projectId}/finance`),
+      http.get<XlFinance>(`/projects/${projectId}/finance`),
 
     addExpense: (projectId: TeamId, item: string, amount: number): Promise<XlFinance> =>
-      isMockMode()
-        ? mockBackend.addExpense(projectId, item, amount)
-        : http.post<XlFinance>(`/projects/${projectId}/finance/expenses`, { item, amount }),
+      http.post<XlFinance>(`/projects/${projectId}/finance/expenses`, { item, amount }),
 
     addIncome: (projectId: TeamId, item: string, amount: number): Promise<XlFinance> =>
-      isMockMode()
-        ? mockBackend.addIncome(projectId, item, amount)
-        : http.post<XlFinance>(`/projects/${projectId}/finance/income`, { item, amount }),
+      http.post<XlFinance>(`/projects/${projectId}/finance/income`, { item, amount }),
 
     paymentCalendar: (projectId: TeamId): Promise<XlPaymentItem[]> =>
-      isMockMode()
-        ? mockBackend.paymentCalendar(projectId)
-        : http.get<XlPaymentItem[]>(`/projects/${projectId}/payments`),
+      http.get<XlPaymentItem[]>(`/projects/${projectId}/payments`),
   },
 
   /* ------------------------- пользовательские показатели --------------------- */
   indicators: {
     /** «Удовлетворённость заказчика» — показатель с коридором 40–130% */
     list: (projectId: TeamId): Promise<XlIndicator[]> =>
-      isMockMode()
-        ? mockBackend.listIndicators(projectId)
-        : http.get<XlIndicator[]>(`/projects/${projectId}/indicators`),
+      http.get<XlIndicator[]>(`/projects/${projectId}/indicators`),
 
     setValue: (projectId: TeamId, key: string, value: number): Promise<XlIndicator> =>
-      isMockMode()
-        ? mockBackend.setIndicator(projectId, key, value)
-        : http.patch<XlIndicator>(`/projects/${projectId}/indicators/${key}`, { value }),
+      http.patch<XlIndicator>(`/projects/${projectId}/indicators/${key}`, { value }),
   },
 
   /* ---------------------------------- отчёты --------------------------------- */
   reports: {
     /** Отчёт по отклонениям сразу по всем проектам */
-    deviations: (): Promise<DeviationRow[]> =>
-      isMockMode() ? mockBackend.deviations() : http.get<DeviationRow[]>('/reports/deviations'),
+    deviations: (): Promise<DeviationRow[]> => http.get<DeviationRow[]>('/reports/deviations'),
 
     status: (projectId: TeamId): Promise<Record<string, unknown>> =>
-      isMockMode() ? mockBackend.statusReport(projectId) : http.get<Record<string, unknown>>(`/projects/${projectId}/status`),
+      http.get<Record<string, unknown>>(`/projects/${projectId}/status`),
 
     bi: (): Promise<{ index: number; teams: DeviationRow[] }> =>
-      isMockMode() ? mockBackend.biReport() : http.get<{ index: number; teams: DeviationRow[] }>('/reports/bi'),
-  },
-
-  /* ------------------------- подготовка демо-пространства -------------------- */
-  setup: {
-    prepareDemoSpace: (teamIds: TeamId[]): Promise<XlWorkspaceInfo> =>
-      isMockMode()
-        ? mockBackend.prepareDemoSpace(teamIds)
-        : http.post<XlWorkspaceInfo>('/setup/demo-space', { teamIds }),
-  },
-
-  /* ------------------------------ синхронизация ------------------------------ */
-  sync: {
-    log: (
-      projectId: string,
-      module: string,
-      action: string,
-      ok = true,
-      payload?: Record<string, unknown>,
-      error?: string,
-    ): XlSyncLogEntry => mockBackend.logSync(projectId, module, action, ok, payload, error),
-
-    history: (): Promise<XlSyncLogEntry[]> => mockBackend.syncLog(),
-
-    reset: (): Promise<void> => mockBackend.resetMock(),
+      http.get<{ index: number; teams: DeviationRow[] }>('/reports/bi'),
   },
 };
 

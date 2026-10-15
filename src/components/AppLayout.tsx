@@ -1,5 +1,5 @@
 /**
- * Каркас приложения: боковое меню, верхняя панель с режимом API и переключателем темы.
+ * Каркас приложения: боковое меню, верхняя панель с пользователем и переключателем темы.
  * Tailwind v4, тема — через [data-mode] на <html>.
  */
 import { useState, type ReactNode } from 'react';
@@ -7,7 +7,6 @@ import { NavLink } from 'react-router-dom';
 import { useSession } from '../game/store';
 import { useAuth } from '../auth/AuthProvider';
 import { getProject } from '../data/projects';
-import { apiConfig } from '../api/config';
 import { XlanceLogo } from './XLanceLogo';
 
 type Mode = 'light' | 'dark';
@@ -179,20 +178,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 {`${user.firstName} ${user.lastName}`.trim() || user.email}
               </span>
             ) : null}
-            {/* <span
-              title={
-                apiConfig.mode === 'mock'
-                  ? 'Демо-режим: mock X-Lance API (localStorage)'
-                  : `Реальный X-Lance API: ${apiConfig.baseUrl || 'URL не задан'}`
-              }
-              className={`hidden rounded-full border px-3 py-1 text-xs sm:inline-block ${
-                apiConfig.mode === 'mock'
-                  ? 'border-amber-400/50 text-amber-300'
-                  : 'border-emerald-400/50 text-emerald-300'
-              }`}
-            >
-              {apiConfig.mode === 'mock' ? 'MOCK API' : 'HTTP API'}
-            </span> */}
             <button
               type="button"
               onClick={toggleTheme}

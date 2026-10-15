@@ -1,8 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Режим API-слоя: mock (демо) | http (реальный X-Lance API) */
-  readonly VITE_API_MODE: 'mock' | 'http';
   /** GraphQL-эндпоинт X-Lance (по умолчанию https://preview.x-lance.ru/api/graphql) */
   readonly VITE_XLANCE_API_URL: string;
   /** Bearer-токен доступа к X-Lance API */

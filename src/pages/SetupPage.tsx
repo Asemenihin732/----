@@ -36,7 +36,7 @@ export default function SetupPage() {
   const [tenantName, setTenantName] = useState(() => loadProvisionResult()?.tenantName ?? 'Игра');
   const [tenantKey, setTenantKey] = useState(() => loadProvisionResult()?.tenantKey ?? 'IG');
   const [provisioning, setProvisioning] = useState(false);
-  const [log, setLog] = useState<string[]>([]);
+  const [, setLog] = useState<string[]>([]);
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const [provisionResult, setProvisionResult] = useState<ProvisionResult | null>(() =>
     loadProvisionResult(),

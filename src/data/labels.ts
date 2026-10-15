@@ -7,7 +7,6 @@ export const categoryLabels: Record<CardCategory, string> = {
   FORS_MAJOR: 'Форс-мажор',
   RESURSY: 'Ресурсы',
   UNIVERSAL: 'Универсальная',
-  BONUS: 'Бонус',
 }
 
 export const categoryEmoji: Record<CardCategory, string> = {
@@ -17,5 +16,4 @@ export const categoryEmoji: Record<CardCategory, string> = {
   FORS_MAJOR: '⚡',
   RESURSY: '📦',
   UNIVERSAL: '🔁',
-  BONUS: '🎁',
 }

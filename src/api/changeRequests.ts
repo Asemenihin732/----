@@ -1,13 +1,14 @@
 /**
  * changeRequests.ts — запросы на изменение объёма работ.
  *
- * В демо-режиме запросы живут в mock-БД (создание, согласование Заказчиком).
  * В X-Lance отдельной сущности «запрос на изменение» нет (см. schema.json),
- * поэтому в http-режиме решение фиксируется документарно — записями в журнале,
- * а пересмотр плана и бюджета происходит правками задач/показателей.
+ * поэтому запрос оформляется и согласуется в игре, а само действие фиксируется
+ * в журнале. Пересмотр плана при этом выполняется правкой длительности задачи
+ * в X-Lance (`updateTask`) в момент решения команды.
+ *
+ * Оформленные за время сессии запросы хранятся в памяти вкладки.
  */
-import { isMockMode } from './config';
-import { mockBackend } from './mockBackend';
+import { journalLog } from './journal';
 import type { XlChangeRequest } from './types';
 import type { TeamId } from '../data/projects';
 
@@ -21,31 +22,51 @@ export interface ChangeRequestPayload {
   deltaIncome: number;
 }
 
-const newId = (): string => `xl-cr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+const requests = new Map<string, XlChangeRequest>();
+
+let counter = 0;
+const newId = (): string => `xl-cr-${Date.now().toString(36)}-${++counter}`;
+
+function payloadLog(payload: ChangeRequestPayload): Record<string, unknown> {
+  return {
+    days: payload.deltaDays,
+    cost: payload.deltaCost,
+    income: payload.deltaIncome,
+  };
+}
 
 /** Оформить запрос на изменение. */
 export async function createChangeRequest(payload: ChangeRequestPayload): Promise<XlChangeRequest> {
-  if (isMockMode()) return mockBackend.createChangeRequest(payload);
   const request: XlChangeRequest = {
     ...payload,
     id: newId(),
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
-  mockBackend.logSync(
+  requests.set(request.id, request);
+  journalLog(
     payload.projectId,
     'change-requests',
     `Запрос на изменение: «${payload.cardTitle}» — ${payload.optionTitle}`,
     true,
-    { deltaDays: payload.deltaDays, deltaCost: payload.deltaCost, deltaIncome: payload.deltaIncome },
+    payloadLog(payload),
   );
   return request;
 }
 
 /** Утвердить запрос на изменение (Заказчик — фасилитатор). */
 export async function approveChangeRequest(id: string, comment?: string): Promise<XlChangeRequest> {
-  if (isMockMode()) return mockBackend.approveChangeRequest(id, comment);
-  const approved: XlChangeRequest = {
+  const request = requests.get(id);
+  if (request) {
+    request.status = 'approved';
+    request.decidedAt = new Date().toISOString();
+    request.approver = 'Заказчик (фасилитатор)';
+    request.comment = comment;
+    journalLog(request.projectId, 'approvals', `Запрос на изменение утверждён: ${id}`, true, { comment });
+    return request;
+  }
+  journalLog('', 'approvals', `Запрос на изменение утверждён: ${id}`, false, undefined, 'Запрос не найден в сессии');
+  return {
     id,
     projectId: '',
     cardId: '',
@@ -60,14 +81,21 @@ export async function approveChangeRequest(id: string, comment?: string): Promis
     approver: 'Заказчик (фасилитатор)',
     comment,
   };
-  mockBackend.logSync('', 'approvals', `Запрос на изменение утверждён: ${id}`, true, { comment });
-  return approved;
 }
 
 /** Отклонить запрос на изменение. */
 export async function rejectChangeRequest(id: string, comment?: string): Promise<XlChangeRequest> {
-  if (isMockMode()) return mockBackend.rejectChangeRequest(id, comment);
-  const rejected: XlChangeRequest = {
+  const request = requests.get(id);
+  if (request) {
+    request.status = 'rejected';
+    request.decidedAt = new Date().toISOString();
+    request.approver = 'Заказчик (фасилитатор)';
+    request.comment = comment;
+    journalLog(request.projectId, 'approvals', `Запрос на изменение отклонён: ${id}`, true, { comment });
+    return request;
+  }
+  journalLog('', 'approvals', `Запрос на изменение отклонён: ${id}`, false, undefined, 'Запрос не найден в сессии');
+  return {
     id,
     projectId: '',
     cardId: '',
@@ -82,6 +110,10 @@ export async function rejectChangeRequest(id: string, comment?: string): Promise
     approver: 'Заказчик (фасилитатор)',
     comment,
   };
-  mockBackend.logSync('', 'approvals', `Запрос на изменение отклонён: ${id}`, true, { comment });
-  return rejected;
+}
+
+/** Запросы на изменение, оформленные за текущую сессию. */
+export function listChangeRequests(projectId?: TeamId): XlChangeRequest[] {
+  const all = [...requests.values()];
+  return projectId ? all.filter((r) => r.projectId === projectId) : all;
 }
