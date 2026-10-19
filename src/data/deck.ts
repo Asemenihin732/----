@@ -1,5 +1,10 @@
 /**
- * Колода из 18 карточек — строго по файлу «UPD текст X-Lance_Koloda_18_kartochek_itog.docx».
+ * Колода карточек. Базовая колода — файл src/data/deck.json, на сайте — /deck.json (18 карточек по
+ * «UPD текст X-Lance_Koloda_18_kartochek_itog.docx»): он лежит на сервере рядом
+ * с сайтом, и заменить колоду можно без пересборки — достаточно подменить файл.
+ *
+ * При запуске игра вызывает `loadDeck()`: колода, сохранённая в этом браузере
+ * (конфигуратор), иначе deck.json с сервера, иначе копия, собранная в бандл.
  *
  * «Стоимость трудозатрат» на карточке — не отдельный платёж: X-Lance сам
  * пересчитывает труд при изменении длительности задачи или назначении
@@ -21,8 +26,9 @@ import type {
   VariantKey,
   XlAction,
 } from '../game/types';
+import baseDeckFile from './deck.json' with { type: 'json' };
 
-interface DeckVariant {
+export interface DeckVariant {
   /** Название варианта — как на карточке */
   label: string;
   /** Шаги «Что сделать в X-Lance» — дословно с карточки */
@@ -49,7 +55,7 @@ interface DeckVariant {
   actions?: XlAction[];
 }
 
-interface DeckEntry {
+export interface DeckEntry {
   team: TeamId;
   round: RoundNumber;
   /** Бонусная карточка (на карточке «РАУНД N · БОНУС») */
@@ -61,765 +67,77 @@ interface DeckEntry {
 }
 
 /** Новая задача «AI-фотобудка» — общая для вариантов A и B (труд 28 000 ₽ считает X-Lance). */
-const AI_PHOTO_BOOTH: XlAction = {
-  type: 'addTask',
-  name: 'AI-фотобудка',
-  days: 1,
-  anchor: 'Тестовый прогон активностей',
-  placement: 'before',
-  assign: [
-    { resource: 'Креативный продюсер', days: 1 },
-    { resource: 'Координатор', days: 1 },
-  ],
-};
+/** Файл колоды (deck.json): версия формата и карточки. */
+export interface DeckFile {
+  version: 1;
+  cards: DeckEntry[];
+}
 
-/** Новая задача «Выступление блогера» — общая для вариантов A и B (труд 16 000 ₽ считает X-Lance). */
-const BLOGGER_SHOW: XlAction = {
-  type: 'addTask',
-  name: 'Выступление блогера',
-  days: 1,
-  anchor: 'Проведение и закрытие площадки',
-  placement: 'before',
-  assign: [{ resource: 'Продюсер', days: 1 }],
-};
+/** Откуда взята текущая колода. */
+export type DeckSource = 'browser' | 'server' | 'bundled';
 
-const DECK: DeckEntry[] = [
-  /* ============================== 1. Кейтеринг ============================== */
-  {
-    team: 'catering',
-    round: 1,
-    category: 'ZAKAZCHIK',
-    title: 'Дегустация прошла слишком хорошо',
-    description:
-      'Заказчик привёл на дегустацию восемь коллег. Съели всё, включая образцы, отложенные на завтра.',
-    variants: {
-      A: {
-        label: 'Провести дегустацию повторно',
-        actions: [{ type: 'duration', task: 'Дегустация и корректировка меню', days: 1 }],
-        deltaDays: { taskName: 'Дегустация и корректировка меню', deltaDay: 1 },
-        deltaCost: 70_000,
-        laborCost: 45_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Повторная дегустация', amount: -25_000, expenseItem: 'Продукты' }],
-        steps: [
-          'Увеличить длительность задачи «Дегустация и корректировка меню» +1 дн. к сроку',
-          'Стоимость трудозатрат — 45 000 ₽',
-          'Добавить расход на продукты — 25 000 ₽',
-          'Повысить удовлетворённость заказчика на 5 п.п.',
-        ],
-      },
-      B: {
-        label: 'Прислать фотографии блюд вместо повтора',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость заказчика на 10 п.п.'],
-      },
-      C: {
-        label: 'Отправить остатки курьером',
-        deltaCost: 10_000,
-        payments: [{ name: 'Доставка образцов', amount: -10_000, expenseItem: 'Продукты' }],
-        steps: ['Добавить расход «Доставка образцов» — 10 000 ₽'],
-      },
-    },
-  },
-  {
-    team: 'catering',
-    round: 2,
-    category: 'ZAKAZCHIK',
-    title: '«Хотим как на том форуме»',
-    description:
-      'Заказчик прислал фото фуршета с бюджетом втрое больше вашего. Подпись: «ну примерно так, только подешевле».',
-    variants: {
-      A: {
-        label: 'Воспроизвести близко к оригиналу',
-        actions: [{ type: 'duration', task: 'Подготовка блюд', days: 1 }],
-        deltaDays: { taskName: 'Подготовка блюд', deltaDay: 1 },
-        deltaCost: 115_000,
-        laborCost: 30_000,
-        deltaSatisfaction: 15,
-        payments: [{ name: 'Премиальное меню', amount: -85_000, expenseItem: 'Продукты' }],
-        steps: [
-          'Увеличить длительность задачи «Подготовка блюд» +1 дн. к сроку',
-          'Стоимость трудозатрат — 30 000 ₽',
-          'Добавить расход «Премиальное меню» — 85 000 ₽',
-          'Повысить удовлетворённость на 15 п.п.',
-        ],
-      },
-      B: {
-        label: 'Оформить запрос на изменение',
-        actions: [
-          { type: 'manual', text: 'Согласовать оплачиваемое изменение с Заказчиком' },
-          { type: 'duration', task: 'Подготовка блюд', days: 1 },
-        ],
-        deltaDays: { taskName: 'Подготовка блюд', deltaDay: 1 },
-        deltaCost: 115_000,
-        laborCost: 30_000,
-        deltaRevenue: 150_000,
-        deltaSatisfaction: 10,
-        isChangeRequest: true,
-        payments: [
-          { name: 'Премиальное меню', amount: -85_000, expenseItem: 'Продукты' },
-          { name: 'Запрос на изменение: дополнительный доход по договору', amount: 150_000 },
-        ],
-        steps: [
-          'Согласовать оплачиваемое изменение с Заказчиком, доход +150 000 ₽',
-          'Увеличить длительность задачи «Подготовка блюд» +1 дн. к сроку',
-          'Стоимость трудозатрат — 30 000 ₽',
-          'Добавить расход «Премиальное меню» — 85 000 ₽',
-          'Повысить удовлетворённость на 10 п.п.',
-        ],
-      },
-      C: {
-        label: 'Объяснить, сколько это стоит на самом деле',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'catering',
-    round: 3,
-    category: 'FORS_MAJOR',
-    title: 'Кофемашина сдалась первой',
-    description:
-      'Единственная кофемашина умерла на сороковой чашке. В очереди двести человек, и половина пришла именно за кофе.',
-    variants: {
-      A: {
-        label: 'Срочно арендовать две новые',
-        deltaCost: 35_000,
-        deltaSatisfaction: 10,
-        payments: [
-          { name: 'Аренда двух кофемашин', amount: -35_000, expenseItem: 'Аренда оборудования' },
-        ],
-        steps: ['Добавить расход «Аренда двух кофемашин» — 35 000 ₽', 'Повысить удовлетворённость на 10 п.п.'],
-      },
-      B: {
-        label: 'Перейти на растворимый',
-        deltaCost: 2_000,
-        deltaSatisfaction: -20,
-        payments: [{ name: 'Растворимый кофе', amount: -2_000, expenseItem: 'Продукты' }],
-        steps: ['Добавить расход «Растворимый кофе» — 2 000 ₽', 'Снизить удовлетворённость на 20 п.п.'],
-      },
-      C: {
-        label: 'Отправить всех в кафе напротив',
-        deltaSatisfaction: -15,
-        steps: ['Расходы не менять', 'Снизить удовлетворённость на 15 п.п.'],
-      },
-    },
-  },
+/** Ключ колоды, сохранённой в этом браузере (конфигуратор). */
+export const DECK_STORAGE_KEY = 'xlance-deck-v1';
 
-  /* ================================ 2. Сцена ================================ */
-  {
-    team: 'stage',
-    round: 1,
-    category: 'PODRYADCHIKI',
-    title: 'Приехал не тот комплект',
-    description:
-      'Прислали оборудование для свадьбы: зеркальный шар, дым-машина и подсветка в форме сердечек.',
-    variants: {
-      A: {
-        label: 'Срочно менять весь комплект',
-        deltaCost: 45_000,
-        payments: [
-          { name: 'Замена комплекта оборудования', amount: -45_000, expenseItem: 'Аренда оборудования' },
-        ],
-        steps: ['Добавить расход «Замена комплекта оборудования» — 45 000 ₽'],
-      },
-      B: {
-        label: 'Оставить, но отключить сердечки',
-        actions: [{ type: 'duration', task: 'Настройка звука и света', days: 1 }],
-        deltaDays: { taskName: 'Настройка звука и света', deltaDay: 1 },
-        deltaCost: 15_000,
-        laborCost: 15_000,
-        deltaSatisfaction: -10,
-        steps: [
-          'Увеличить длительность задачи «Настройка звука и света» +1 дн. к сроку',
-          'Стоимость трудозатрат — 15 000 ₽',
-          'Снизить удовлетворённость на 10 п.п.',
-        ],
-      },
-      C: {
-        label: 'Использовать как есть',
-        deltaSatisfaction: -25,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 25 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'stage',
-    round: 2,
-    category: 'FORS_MAJOR',
-    title: 'На прогоне фонит звук',
-    description:
-      'Каждый раз, когда спикер подходит к краю сцены, зал слышит вой. Спикер считает, что это овации.',
-    variants: {
-      A: {
-        label: 'Вызвать звукорежиссёра на ночную смену',
-        actions: [
-          {
-            type: 'addTask',
-            name: 'Устранение наводки',
-            days: 1, // ночная смена параллельно прогону — срок не растёт
-            anchor: 'Технический прогон',
-            placement: 'parallel',
-            assign: [{ resource: 'Звукорежиссёр', days: 1 }],
-          },
-        ],
-        deltaCost: 15_000, // труд; на карточке без пометки «в т. ч. труд»
-        deltaSatisfaction: 5,
-        steps: [
-          'Создать задачу «Устранение наводки» на ночь перед Днём Х, исполнитель — звукорежиссёр',
-          'Стоимость трудозатрат — 15 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-        ],
-      },
-      B: {
-        label: 'Разбираться силами команды',
-        actions: [
-          { type: 'duration', task: 'Технический прогон', days: 1 },
-          // в плане прогон — веха без исполнителей: ставим команду на добавленный день
-          { type: 'labor', task: 'Технический прогон', resource: 'Технический директор', days: 1 },
-          { type: 'labor', task: 'Технический прогон', resource: 'Звукорежиссёр', days: 1 },
-        ],
-        deltaDays: { taskName: 'Технический прогон', deltaDay: 1 },
-        deltaCost: 33_000,
-        laborCost: 33_000,
-        deltaSatisfaction: -5,
-        steps: [
-          'Увеличить длительность задачи «Технический прогон» +1 дн. к сроку',
-          'Стоимость трудозатрат — 33 000 ₽',
-          'Снизить удовлетворённость на 5 п.п.',
-        ],
-      },
-      C: {
-        label: 'Попросить спикеров не подходить к краю',
-        deltaSatisfaction: -25,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 25 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'stage',
-    round: 3,
-    bonus: true,
-    category: 'BONUS',
-    title: 'Кот-звукорежиссёр',
-    description:
-      'На сцену во время прогона вышел кот площадки, сел у колонки и не сдвинулся с места до конца репетиции. Спикеры решили, что это «к счастью», и выступили без единой накладки. Фото кота уже в корпоративном чате заказчика.',
-    variants: {
-      A: {
-        label: 'Принять',
-        actions: [{ type: 'manual', text: 'Прикрепить к задаче «Технический прогон» фото кота' }],
-        deltaRevenue: 15_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Мерч с котом', amount: 15_000 }],
-        steps: [
-          'Провести дополнительный доход «Мерч с котом» — 15 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-          'Прикрепить к задаче «Технический прогон» фото кота',
-        ],
-      },
-    },
-  },
+const TEAMS: readonly TeamId[] = ['catering', 'stage', 'entertainment', 'merch', 'logistics', 'afterparty'];
+const CATEGORIES: readonly CardCategory[] = ['LUDI', 'PODRYADCHIKI', 'ZAKAZCHIK', 'FORS_MAJOR', 'RESURSY', 'UNIVERSAL', 'BONUS'];
+const ACTION_TYPES: readonly XlAction['type'][] = ['duration', 'extendProject', 'addTask', 'labor', 'reassign', 'manual'];
 
-  /* ============================== 3. Развлечения ============================= */
-  {
-    team: 'entertainment',
-    round: 1,
-    category: 'PODRYADCHIKI',
-    title: 'Аниматор пришёл не в том костюме',
-    description: 'Ждали робота будущего. Пришёл единорог. Костюм, по словам аниматора, не снимается.',
-    variants: {
-      A: {
-        label: 'Срочно искать другой костюм',
-        deltaCost: 20_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Срочная аренда костюма', amount: -20_000, expenseItem: 'Реквизит' }],
-        steps: ['Добавить расход «Срочная аренда костюма» — 20 000 ₽', 'Повысить удовлетворённость на 5 п.п.'],
-      },
-      B: {
-        label: 'Переписать сценарий под единорога',
-        actions: [{ type: 'duration', task: 'Концепция активностей', days: 1 }],
-        deltaDays: { taskName: 'Концепция активностей', deltaDay: 1 },
-        deltaCost: 28_000,
-        laborCost: 28_000,
-        deltaSatisfaction: 5,
-        steps: [
-          'Увеличить длительность задачи «Концепция активностей» +1 дн. к сроку',
-          'Стоимость трудозатрат — 28 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-        ],
-      },
-      C: {
-        label: 'Выпустить как есть',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'entertainment',
-    round: 2,
-    category: 'ZAKAZCHIK',
-    title: '«Хотим что-нибудь с нейросетями»',
-    description: 'Заказчик услышал это слово на другой конференции и теперь хочет, чтобы у вас тоже было.',
-    variants: {
-      A: {
-        label: 'Сделать AI-фотобудку',
-        actions: [AI_PHOTO_BOOTH],
-        deltaDays: { taskName: 'AI-фотобудка', deltaDay: 1 },
-        deltaCost: 83_000,
-        laborCost: 28_000,
-        deltaSatisfaction: 15,
-        payments: [{ name: 'AI-фотобудка', amount: -55_000, expenseItem: 'Реквизит' }],
-        steps: [
-          'Добавить в план задачу «AI-фотобудка» +1 дн. к сроку',
-          'Стоимость трудозатрат — 28 000 ₽',
-          'Добавить расход «AI-фотобудка» — 55 000 ₽',
-          'Повысить удовлетворённость на 15 п.п.',
-        ],
-      },
-      B: {
-        label: 'Оформить запрос на изменение',
-        actions: [
-          { type: 'manual', text: 'Согласовать с Заказчиком оплачиваемое изменение' },
-          AI_PHOTO_BOOTH,
-        ],
-        deltaDays: { taskName: 'AI-фотобудка', deltaDay: 1 },
-        deltaCost: 83_000,
-        laborCost: 28_000,
-        deltaRevenue: 120_000,
-        deltaSatisfaction: 10,
-        isChangeRequest: true,
-        payments: [
-          { name: 'AI-фотобудка', amount: -55_000, expenseItem: 'Реквизит' },
-          { name: 'Запрос на изменение: дополнительный доход по договору', amount: 120_000 },
-        ],
-        steps: [
-          'Согласовать с Заказчиком оплачиваемое изменение: +1 дн. к сроку, доход +120 000 ₽',
-          // трудозатраты 28 000 ₽ берутся из задачи — как в варианте A
-          'Добавить в план задачу «AI-фотобудка»',
-          'Стоимость трудозатрат — 28 000 ₽',
-          'Добавить расход «AI-фотобудка» — 55 000 ₽',
-          'Повысить удовлетворённость на 10 п.п.',
-        ],
-      },
-      C: {
-        label: 'Объяснить, что это не входит в объём',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'entertainment',
-    round: 3,
-    category: 'FORS_MAJOR',
-    title: 'Нетворкинг-зона превратилась в спальню',
-    description: 'Кресла оказались слишком удобными. Трое спят, один храпит прямо в микрофон подкаст-зоны.',
-    variants: {
-      A: {
-        label: 'Заменить кресла на барные стулья',
-        deltaCost: 20_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Замена мебели на барные стулья', amount: -20_000, expenseItem: 'Реквизит' }],
-        steps: ['Добавить расход «Замена мебели на барные стулья» — 20 000 ₽', 'Повысить удовлетворённость на 5 п.п.'],
-      },
-      B: {
-        label: 'Разбудить и включить музыку',
-        deltaCost: 5_000,
-        payments: [{ name: 'Музыкальное оборудование', amount: -5_000, expenseItem: 'Прочие расходы' }],
-        steps: ['Добавить расход «Музыкальное оборудование» — 5 000 ₽'],
-      },
-      C: {
-        label: 'Оставить — это тоже нетворкинг',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-    },
-  },
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const optNumber = (v: unknown) => v === undefined || isNumber(v);
 
-  /* ================================= 4. Мерч ================================= */
-  {
-    team: 'merch',
-    round: 1,
-    category: 'LUDI',
-    title: 'Дизайнер ушёл в середине проекта',
-    description:
-      'Написал в чат «ушёл в закат» и вышел из всех групп. Файлы называются «финал_финал_2_вот_этот».',
-    variants: {
-      A: {
-        label: 'Нанять фрилансера',
-        actions: [{ type: 'labor', task: 'Дизайн-макеты', resource: 'Дизайнер', days: -1 }],
-        deltaCost: 40_000,
-        payments: [{ name: 'Фрилансер-дизайнер', amount: -40_000, expenseItem: 'Дизайнер' }],
-        steps: [
-          'В ресурсном плане удалить исполнителя на задаче «Дизайн-макеты»',
-          'Добавить расход «Фрилансер-дизайнер» — 40 000 ₽',
-        ],
-      },
-      B: {
-        label: 'Доделать силами команды',
-        actions: [
-          // менеджер уже на задаче: снимаем дизайнера, менеджер доделывает за добавленный день
-          { type: 'labor', task: 'Дизайн-макеты', resource: 'Дизайнер', days: -1 },
-          { type: 'duration', task: 'Дизайн-макеты', days: 1 },
-        ],
-        deltaDays: { taskName: 'Дизайн-макеты', deltaDay: 1 },
-        deltaCost: 20_000,
-        laborCost: 15_000,
-        deltaSatisfaction: -5,
-        payments: [{ name: 'Переработки', amount: -5_000 }],
-        steps: [
-          'Переназначить задачу «Дизайн-макеты» на менеджера проекта в ресурсном плане',
-          'Увеличить длительность задачи +1 дн. к сроку',
-          'Стоимость трудозатрат — 15 000 ₽',
-          'Добавить расход «Переработки» — 5 000 ₽',
-          'Снизить удовлетворённость на 5 п.п.',
-        ],
-      },
-      C: {
-        label: 'Использовать шаблоны из стока',
-        deltaSatisfaction: -20,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 20 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'merch',
-    round: 2,
-    category: 'ZAKAZCHIK',
-    title: 'Заказчик поменял логотип',
-    description:
-      'За три дня до Дня Х компания провела ребрендинг. Тираж уже в печати. Вы узнали об этом из соцсетей.',
-    variants: {
-      A: {
-        label: 'Перепечатать весь тираж за свой счёт',
-        actions: [{ type: 'duration', task: 'Печать тиража', days: 2 }],
-        deltaDays: { taskName: 'Печать тиража', deltaDay: 2 },
-        deltaCost: 204_000,
-        laborCost: 74_000,
-        deltaSatisfaction: 10,
-        payments: [{ name: 'Перепечатка тиража', amount: -130_000, expenseItem: 'Печать тиража' }],
-        steps: [
-          'Увеличить длительность задачи «Печать тиража» +2 дн. к сроку',
-          'Стоимость трудозатрат — 74 000 ₽',
-          'Добавить расход «Перепечатка тиража» — 130 000 ₽',
-          'Повысить удовлетворённость на 10 п.п.',
-        ],
-      },
-      B: {
-        label: 'Оформить запрос на изменение',
-        actions: [
-          { type: 'manual', text: 'Согласовать с Заказчиком оплачиваемое изменение' },
-          { type: 'duration', task: 'Печать тиража', days: 2 },
-        ],
-        deltaDays: { taskName: 'Печать тиража', deltaDay: 2 },
-        deltaCost: 204_000,
-        laborCost: 74_000,
-        deltaRevenue: 250_000,
-        deltaSatisfaction: 10,
-        isChangeRequest: true,
-        payments: [
-          { name: 'Перепечатка тиража', amount: -130_000, expenseItem: 'Печать тиража' },
-          { name: 'Запрос на изменение: дополнительный доход по договору', amount: 250_000 },
-        ],
-        steps: [
-          'Согласовать с Заказчиком оплачиваемое изменение, доход +250 000 ₽',
-          'Увеличить длительность задачи «Печать тиража» +2 дн. к сроку',
-          'Стоимость трудозатрат — 74 000 ₽',
-          'Добавить расход «Перепечатка тиража» — 130 000 ₽',
-          'Повысить удовлетворённость на 10 п.п.',
-        ],
-      },
-      C: {
-        label: 'Отдать тираж со старым логотипом',
-        deltaSatisfaction: -30,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 30 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'merch',
-    round: 3,
-    category: 'ZAKAZCHIK',
-    title: 'Гостей больше, мерча не хватает',
-    description:
-      'Пришло на шестьдесят человек больше. Очередь за футболками длиннее очереди на регистрацию.',
-    variants: {
-      A: {
-        label: 'Срочная допечатка части позиций',
-        deltaCost: 45_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Допечатка тиража', amount: -45_000, expenseItem: 'Печать тиража' }],
-        steps: ['Добавить расход «Допечатка тиража» — 45 000 ₽', 'Повысить удовлетворённость на 5 п.п.'],
-      },
-      B: {
-        label: 'Раздавать по приоритету: сначала VIP',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-      C: {
-        label: 'Кому не хватило — промокод на доставку',
-        deltaCost: 10_000,
-        deltaSatisfaction: -5,
-        payments: [{ name: 'Промокоды и доставка', amount: -10_000, expenseItem: 'Логистика' }],
-        steps: ['Добавить расход «Промокоды и доставка» — 10 000 ₽', 'Снизить удовлетворённость на 5 п.п.'],
-      },
-    },
-  },
-
-  /* =============================== 5. Логистика ============================== */
-  {
-    team: 'logistics',
-    round: 1,
-    category: 'FORS_MAJOR',
-    title: 'Обратный трансфер никто не заказывал',
-    description:
-      'Все помнили про «привезти». Про «увезти» не помнил никто. На улице ночь и триста человек.',
-    variants: {
-      A: {
-        label: 'Срочно поднять перевозчика',
-        actions: [
-          {
-            type: 'addTask',
-            name: 'Обратный трансфер',
-            days: 1,
-            anchor: 'Координация в День Х',
-            placement: 'parallel',
-          },
-        ],
-        deltaCost: 60_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Срочный заказ рейсов', amount: -60_000, expenseItem: 'Перевозчик (подряд)' }],
-        steps: [
-          'Добавить в план задачу «Обратный трансфер» на День Х',
-          'Добавить расход «Срочный заказ рейсов» — 60 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-        ],
-      },
-      B: {
-        label: 'Вызвать такси централизованно',
-        deltaCost: 40_000,
-        payments: [{ name: 'Такси для гостей', amount: -40_000, expenseItem: 'Резервные такси' }],
-        steps: ['Добавить расход «Такси для гостей» — 40 000 ₽'],
-      },
-      C: {
-        label: 'Разослать ссылку на приложение такси',
-        deltaSatisfaction: -20,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 20 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'logistics',
-    round: 2,
-    category: 'PODRYADCHIKI',
-    title: 'Автобус забрендировали чужим логотипом',
-    description:
-      'Перевозчик наклеил логотип предыдущего клиента. Гости уверены, что едут на съезд стоматологов.',
-    variants: {
-      A: {
-        label: 'Переклеить срочно',
-        actions: [{ type: 'duration', task: 'Бронирование трансферов', days: 1 }],
-        deltaDays: { taskName: 'Бронирование трансферов', deltaDay: 1 },
-        deltaCost: 46_000,
-        laborCost: 26_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Перебрендирование', amount: -20_000, expenseItem: 'Прочие расходы' }],
-        steps: [
-          'Увеличить длительность задачи «Бронирование трансферов» +1 дн. к сроку',
-          'Стоимость трудозатрат — 26 000 ₽',
-          'Добавить расход «Перебрендирование» — 20 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-        ],
-      },
-      B: {
-        label: 'Заклеить нейтральной плёнкой',
-        deltaCost: 8_000,
-        payments: [{ name: 'Нейтральная плёнка', amount: -8_000, expenseItem: 'Прочие расходы' }],
-        steps: ['Добавить расход «Нейтральная плёнка» — 8 000 ₽'],
-      },
-      C: {
-        label: 'Оставить как есть',
-        deltaSatisfaction: -15,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 15 п.п.'],
-      },
-    },
-  },
-  {
-    team: 'logistics',
-    round: 3,
-    bonus: true,
-    category: 'BONUS',
-    title: 'Автобус-экскурсовод',
-    description:
-      'Водитель, который двенадцать лет возит туристов, по дороге так увлекательно рассказал гостям о городе, что трое попросили включить это в программу. Все приехали вовремя и с настроением.',
-    variants: {
-      A: {
-        label: 'Принять',
-        actions: [
-          { type: 'manual', text: 'Добавить в базу знаний заметку «Водителей брифовать на городские байки»' },
-        ],
-        deltaRevenue: 25_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Партнёрская экскурсия', amount: 25_000 }],
-        steps: [
-          'Провести дополнительный доход «Партнёрская экскурсия» + 25 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-          'Добавить в базу знаний заметку «Водителей брифовать на городские байки»',
-        ],
-      },
-    },
-  },
-
-  /* =============================== 6. Афтепати =============================== */
-  {
-    team: 'afterparty',
-    round: 1,
-    category: 'RESURSY',
-    title: 'На площадке ковролин',
-    description: 'Танцпол предполагался. Ковролин предполагает другое. Владелец говорит «зато уютно».',
-    variants: {
-      A: {
-        label: 'Смонтировать танцевальный настил',
-        actions: [
-          {
-            type: 'addTask',
-            name: 'Монтаж танцевального настила',
-            days: 1,
-            anchor: 'Проведение и закрытие площадки',
-            placement: 'before',
-            assign: [{ resource: 'Продюсер', days: 1 }],
-          },
-        ],
-        deltaDays: { taskName: 'Монтаж танцевального настила', deltaDay: 1 },
-        deltaCost: 51_000,
-        laborCost: 16_000,
-        deltaSatisfaction: 5,
-        payments: [{ name: 'Настил', amount: -35_000, expenseItem: 'Свет и декор' }],
-        steps: [
-          'Добавить в план задачу «Монтаж танцевального настила» +1 дн. к сроку',
-          'Стоимость трудозатрат — 16 000 ₽',
-          'Добавить расход «Настил» — 35 000 ₽',
-          'Повысить удовлетворённость на 5 п.п.',
-        ],
-      },
-      B: {
-        label: 'Оставить ковролин',
-        deltaSatisfaction: -10,
-        steps: ['План и бюджет не менять', 'Снизить удовлетворённость на 10 п.п.'],
-      },
-      C: {
-        label: 'Искать другую площадку',
-        actions: [{ type: 'duration', task: 'Подбор и бронирование площадки', days: 1 }],
-        deltaDays: { taskName: 'Подбор и бронирование площадки', deltaDay: 1 },
-        deltaCost: 76_000,
-        laborCost: 16_000,
-        payments: [{ name: 'Новая площадка', amount: -60_000, expenseItem: 'Аренда площадки' }],
-        steps: [
-          'Увеличить длительность задачи «Подбор и бронирование площадки» +1 дн. к сроку',
-          'Стоимость трудозатрат — 16 000 ₽',
-          'Добавить расход «Новая площадка» — 60 000 ₽',
-        ],
-      },
-    },
-  },
-  {
-    team: 'afterparty',
-    round: 2,
-    category: 'FORS_MAJOR',
-    title: 'Соседи вызвали полицию',
-    description:
-      '23:40, третий этаж напротив, жалоба на шум. Наряд уже на входе и тоже интересуется, кто диджей.',
-    variants: {
-      A: {
-        label: 'Договориться и снизить громкость',
-        deltaCost: 15_000,
-        deltaSatisfaction: -5,
-        payments: [{ name: 'Урегулирование с соседями', amount: -15_000, expenseItem: 'Охрана' }],
-        steps: ['Добавить расход «Урегулирование с соседями» — 15 000 ₽', 'Снизить удовлетворённость на 5 п.п.'],
-      },
-      B: {
-        label: 'Закрыть афтепати раньше',
-        deltaCost: -20_000,
-        deltaSatisfaction: -20,
-        payments: [
-          {
-            name: 'Сокращение расходов по статье «Бар и кейтеринг»',
-            amount: 20_000,
-            expenseItem: 'Бар и кейтеринг',
-            reduce: true,
-          },
-        ],
-        steps: ['Уменьшить расход по статье «Бар и кейтеринг» — 20 000 ₽', 'Снизить удовлетворённость на 20 п.п.'],
-      },
-      C: {
-        label: 'Перенести в закрытое помещение',
-        actions: [{ type: 'duration', task: 'Проведение и закрытие площадки', days: 1 }],
-        deltaDays: { taskName: 'Проведение и закрытие площадки', deltaDay: 1 },
-        deltaCost: 96_000,
-        laborCost: 61_000,
-        payments: [{ name: 'Аренда закрытого зала', amount: -35_000, expenseItem: 'Аренда площадки' }],
-        steps: [
-          'Увеличить длительность задачи «Проведение и закрытие площадки» +1 дн. к сроку',
-          'Стоимость трудозатрат — 61 000 ₽',
-          'Добавить расход «Аренда закрытого зала» — 35 000 ₽',
-        ],
-      },
-    },
-  },
-  {
-    team: 'afterparty',
-    round: 3,
-    category: 'ZAKAZCHIK',
-    title: 'Заказчик хочет позвать блогера',
-    description: 'Того самого, у которого миллион подписчиков и гонорар размером с аренду площадки.',
-    variants: {
-      A: {
-        label: 'Пригласить блогера',
-        actions: [BLOGGER_SHOW],
-        deltaDays: { taskName: 'Выступление блогера', deltaDay: 1 },
-        deltaCost: 106_000,
-        laborCost: 16_000,
-        deltaSatisfaction: 15,
-        payments: [{ name: 'Гонорар блогера', amount: -90_000 }],
-        steps: [
-          'Добавить в план задачу «Выступление блогера» +1 дн. к сроку',
-          'Стоимость трудозатрат — 16 000 ₽',
-          'Добавить расход «Гонорар блогера» — 90 000 ₽',
-          'Повысить удовлетворённость на 15 п.п.',
-        ],
-      },
-      B: {
-        label: 'Оформить запрос на изменение',
-        actions: [{ type: 'manual', text: 'Согласовать с Заказчиком оплачиваемое изменение' }, BLOGGER_SHOW],
-        deltaDays: { taskName: 'Выступление блогера', deltaDay: 1 },
-        deltaCost: 106_000,
-        laborCost: 16_000,
-        deltaRevenue: 135_000,
-        deltaSatisfaction: 10,
-        isChangeRequest: true,
-        payments: [
-          { name: 'Гонорар блогера', amount: -90_000 },
-          { name: 'Запрос на изменение: дополнительный доход по договору', amount: 135_000 },
-        ],
-        steps: [
-          'Согласовать с Заказчиком оплачиваемое изменение: +1 дн. к сроку, расходы +106 000 ₽ (труд — 16 000 ₽), доход +135 000 ₽',
-          'Добавить в план задачу «Выступление блогера» +1 дн. к сроку',
-          'Стоимость трудозатрат — 16 000 ₽',
-          'Добавить расход «Гонорар блогера» — 90 000 ₽',
-          'Повысить удовлетворённость на 10 п.п.',
-        ],
-      },
-      C: {
-        label: 'Предложить нескольких микроблогеров',
-        deltaCost: 20_000,
-        payments: [{ name: 'Микроблогеры', amount: -20_000 }],
-        steps: ['Добавить расход «Микроблогеры» — 20 000 ₽'],
-      },
-    },
-  },
-];
+/**
+ * Проверить содержимое файла колоды и вернуть карточки.
+ * Ошибка называет карточку и поле — её можно показать ведущему как есть.
+ */
+export function parseDeckFile(raw: unknown): DeckEntry[] {
+  if (!isObject(raw) || raw.version !== 1 || !Array.isArray(raw.cards)) {
+    throw new Error('Файл колоды: ожидается { "version": 1, "cards": [...] }');
+  }
+  raw.cards.forEach((card: unknown, i) => {
+    const where = `Карточка ${i + 1}`;
+    if (!isObject(card)) throw new Error(`${where}: не объект`);
+    if (!TEAMS.includes(card.team as TeamId)) throw new Error(`${where}: неизвестная команда «${String(card.team)}»`);
+    if (![1, 2, 3].includes(card.round as number)) throw new Error(`${where}: раунд должен быть 1, 2 или 3`);
+    if (!CATEGORIES.includes(card.category as CardCategory)) throw new Error(`${where}: неизвестная категория «${String(card.category)}»`);
+    if (typeof card.title !== 'string' || !card.title.trim()) throw new Error(`${where}: нет заголовка`);
+    if (typeof card.description !== 'string') throw new Error(`${where} «${card.title}»: нет описания`);
+    if (!isObject(card.variants)) throw new Error(`${where} «${card.title}»: нет вариантов`);
+    const keys = Object.keys(card.variants);
+    if (!keys.length || keys.some((k) => !['A', 'B', 'C'].includes(k))) {
+      throw new Error(`«${card.title}»: варианты должны называться A, B, C`);
+    }
+    for (const key of keys) {
+      const v = card.variants[key];
+      const at = `«${card.title}», вариант ${key}`;
+      if (!isObject(v)) throw new Error(`${at}: не объект`);
+      if (typeof v.label !== 'string' || !v.label.trim()) throw new Error(`${at}: нет названия`);
+      if (!Array.isArray(v.steps) || v.steps.some((x) => typeof x !== 'string')) throw new Error(`${at}: шаги — список строк`);
+      for (const f of ['deltaCost', 'laborCost', 'deltaRevenue', 'deltaSatisfaction'] as const) {
+        if (!optNumber(v[f])) throw new Error(`${at}: ${f} — не число`);
+      }
+      if (v.deltaDays !== undefined && !(isObject(v.deltaDays) && isNumber(v.deltaDays.deltaDay))) {
+        throw new Error(`${at}: deltaDays — { taskName, deltaDay }`);
+      }
+      if (v.payments !== undefined) {
+        if (!Array.isArray(v.payments)) throw new Error(`${at}: payments — список`);
+        for (const p of v.payments) {
+          if (!isObject(p) || typeof p.name !== 'string' || !isNumber(p.amount)) throw new Error(`${at}: платёж — { name, amount }`);
+        }
+      }
+      if (v.actions !== undefined) {
+        if (!Array.isArray(v.actions)) throw new Error(`${at}: actions — список`);
+        for (const a of v.actions) {
+          if (!isObject(a) || !ACTION_TYPES.includes(a.type as XlAction['type'])) {
+            throw new Error(`${at}: неизвестное действие «${isObject(a) ? String(a.type) : a}»`);
+          }
+        }
+      }
+    }
+  });
+  return raw.cards as DeckEntry[];
+}
 
 function toVariant(key: VariantKey, d: DeckVariant): Variant {
   return {
@@ -840,21 +158,58 @@ function toVariant(key: VariantKey, d: DeckVariant): Variant {
   };
 }
 
-/** Все карточки колоды в порядке файла. */
-export const deckCards: Card[] = DECK.map((entry) => ({
-  id: `deck-${entry.team}-${entry.round}`,
-  team: entry.team,
-  round: entry.round,
-  category: entry.category,
-  title: entry.title,
-  flavor: entry.description,
-  bonus: entry.bonus,
-  variants: (Object.keys(entry.variants) as VariantKey[]).map((key) =>
-    toVariant(key, entry.variants[key]!),
-  ),
-}));
+function toCard(entry: DeckEntry): Card {
+  return {
+    id: `deck-${entry.team}-${entry.round}`,
+    team: entry.team,
+    round: entry.round,
+    category: entry.category,
+    title: entry.title,
+    flavor: entry.description,
+    bonus: entry.bonus,
+    variants: (Object.keys(entry.variants) as VariantKey[]).map((key) => toVariant(key, entry.variants[key]!)),
+  };
+}
 
-const designated = new Map(deckCards.map((card) => [`${card.team}:${card.round}`, card]));
+/** Все карточки текущей колоды в порядке файла (меняется `setDeck`). */
+export let deckCards: Card[] = [];
+/** Откуда взята текущая колода. */
+export let deckSource: DeckSource = 'bundled';
+let designated = new Map<string, Card>();
+
+/** Сделать колоду текущей. */
+export function setDeck(entries: DeckEntry[], source: DeckSource): void {
+  deckCards = entries.map(toCard);
+  deckSource = source;
+  designated = new Map(deckCards.map((card) => [`${card.team}:${card.round}`, card]));
+}
+
+// до загрузки (и в тестах) — копия базовой колоды из бандла
+setDeck(parseDeckFile(baseDeckFile), 'bundled');
+
+/**
+ * Загрузить колоду при запуске игры: сохранённая в браузере → deck.json с
+ * сервера → копия из бандла. Битая колода пропускается с предупреждением.
+ */
+export async function loadDeck(): Promise<DeckSource> {
+  try {
+    const saved = localStorage.getItem(DECK_STORAGE_KEY);
+    if (saved) {
+      setDeck(parseDeckFile(JSON.parse(saved)), 'browser');
+      return deckSource;
+    }
+  } catch (e) {
+    console.warn('Колода из браузера не подошла, берём с сервера:', e);
+  }
+  try {
+    const res = await fetch(new URL('deck.json', document.baseURI), { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    setDeck(parseDeckFile(await res.json()), 'server');
+  } catch (e) {
+    console.warn('deck.json с сервера не загрузился, играем базовой колодой из сборки:', e);
+  }
+  return deckSource;
+}
 
 /** Карточка, которая выпадает команде в раундах 1–3 при выборе любой закрытой карты. */
 export function designatedCard(team: TeamId, round: number): Card | null {
