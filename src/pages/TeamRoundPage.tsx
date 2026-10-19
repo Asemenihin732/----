@@ -13,7 +13,8 @@ import { SyncStatus } from '../components/SyncStatus';
 import { getProject, type TeamId } from '../data/projects';
 import { designatedCard } from '../data/deck';
 import { useSession } from '../game/store';
-import { formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
+import { formatMoney, formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
+import { apiConfig } from '../api/config';
 import { api } from '../api/api';
 import { syncDecisionToXl } from '../api/decisionSync';
 import { ROUND_XLANCE_ACTION } from '../data/gameData';
@@ -401,7 +402,9 @@ export default function TeamRoundPage() {
                 «{decisionThisRound.cardTitle}» → вариант {decisionThisRound.variantKey}:{' '}
                 {decisionThisRound.variantLabel}
               </p>
-              <div className="mb-5 flex flex-wrap justify-center gap-2 text-sm">
+              {/* что изменилось в проекте — для игроков; отчёт об отправке в X-Lance — только в отладке */}
+              <p className="mb-1 text-caption uppercase tracking-wide text-muted">Что изменилось</p>
+              <div data-testid="decision-changes" className="mb-5 flex flex-wrap justify-center gap-2 text-sm">
                 {decisionThisRound.deltaDays !== 0 && (
                   <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
                     {formatSignedDays(decisionThisRound.deltaDays)} к сроку
@@ -410,6 +413,7 @@ export default function TeamRoundPage() {
                 {decisionThisRound.deltaCost !== 0 && (
                   <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
                     {formatSignedRub(decisionThisRound.deltaCost)} расход
+                    {decidedVariant?.laborCost ? ` (в т. ч. труд ${formatMoney(decidedVariant.laborCost)})` : ''}
                   </span>
                 )}
                 {decisionThisRound.deltaRevenue !== 0 && (
@@ -419,18 +423,24 @@ export default function TeamRoundPage() {
                 )}
                 {decisionThisRound.deltaSatisfaction !== 0 && (
                   <span className="rounded-full bg-soft px-2 py-0.5 text-muted">
-                    {formatSignedPct(decisionThisRound.deltaSatisfaction)} удовл.
+                    {formatSignedPct(decisionThisRound.deltaSatisfaction)} удовлетворённости
                   </span>
                 )}
+                {decisionThisRound.deltaDays === 0 &&
+                  decisionThisRound.deltaCost === 0 &&
+                  decisionThisRound.deltaRevenue === 0 &&
+                  decisionThisRound.deltaSatisfaction === 0 && (
+                    <span className="rounded-full bg-soft px-2 py-0.5 text-muted">без изменений</span>
+                  )}
               </div>
-              {decidedCard ? (
-                <SyncStatus teamId={project.id} round={round} onRetry={retrySync} />
-              ) : (
+              {!decidedCard ? (
                 <div className="mx-auto mb-5 max-w-xl rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm text-warn">
                   Решение принято по карточке не из колоды (сохранённая старая сессия) — его финансы в
                   X-Lance не заведены. Начните новую игру на странице настройки.
                 </div>
-              )}
+              ) : apiConfig.debug ? (
+                <SyncStatus teamId={project.id} round={round} onRetry={retrySync} />
+              ) : null}
               {manualSteps.length > 0 ? (
                 <div className="mx-auto mb-5 max-w-xl rounded-lg border border-line bg-card px-4 py-3 text-left text-sm">
                   <p className="mb-1 text-caption font-semibold uppercase tracking-wide text-muted">

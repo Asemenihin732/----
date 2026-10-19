@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_XLANCE_WORKSPACE_ID: string;
   /** Заголовок приложения */
   readonly VITE_APP_TITLE: string;
+  /** true — режим отладки: отчёт об отправке решений в X-Lance под решением */
+  readonly VITE_DEBUG?: string;
 }
 
 interface ImportMeta {

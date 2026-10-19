@@ -47,6 +47,8 @@ export default defineConfig({
   webServer: {
     command: `npx vite --port ${PORT} --strictPort --open false`,
     url: BASE_URL,
+    // e2e ждёт отчёт об отправке решения в X-Lance — он виден только в режиме отладки
+    env: { VITE_DEBUG: 'true' },
     reuseExistingServer: true,
     timeout: 120_000,
   },

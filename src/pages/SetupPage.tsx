@@ -11,6 +11,7 @@ import { formatMoney } from '../game/engine';
 import { LEGEND, ROUND_XLANCE_ACTION } from '../data/gameData';
 import { loadProvisionResult, provisionGame, type ProvisionResult } from '../api/provision';
 import { clearSyncReports } from '../api/syncReports';
+import { xlanceAppUrl } from '../api/config';
 
 const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
@@ -224,7 +225,7 @@ export default function SetupPage() {
           <button
             type="button"
             className={btnOutline}
-            onClick={() => openInNewTab(`https://preview.x-lance.ru/${tenantKey.trim() || tenantName.trim()}`)}
+            onClick={() => openInNewTab(xlanceAppUrl(tenantKey.trim() || tenantName.trim()))}
           >
             Открыть X-Lance
           </button>

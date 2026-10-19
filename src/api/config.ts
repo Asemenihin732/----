@@ -11,6 +11,11 @@ function findCard(cardId: string) {
 
 const env = import.meta.env;
 
+/** Адрес API по умолчанию — тот же, что в graphql.ts. */
+const DEFAULT_API_URL = 'https://preview.x-lance.ru/api/graphql';
+
+const isTrue = (value: string | undefined) => /^(1|true|yes|on)$/i.test((value ?? '').trim());
+
 export const apiConfig = {
   /** GraphQL-эндпоинт X-Lance */
   baseUrl: env.VITE_XLANCE_API_URL ?? '',
@@ -20,7 +25,19 @@ export const apiConfig = {
   workspaceId: env.VITE_XLANCE_WORKSPACE_ID ?? '',
   /** Заголовок приложения */
   appTitle: env.VITE_APP_TITLE ?? 'X-Lance · Спаси конференцию!',
+  /** Режим отладки (VITE_DEBUG=true): показывать отчёт об отправке решений в X-Lance */
+  debug: isTrue(env.VITE_DEBUG),
 } as const;
+
+/**
+ * Интерфейс X-Lance на том же сервере, что и API: из
+ * https://dev.x-lance.ru/api/graphql и ключа тенанта — https://dev.x-lance.ru/<ключ>.
+ */
+export function xlanceAppUrl(tenantKey: string): string {
+  const origin = new URL(apiConfig.baseUrl || DEFAULT_API_URL).origin;
+  const key = tenantKey.trim().toLowerCase();
+  return key ? `${origin}/${encodeURIComponent(key)}` : origin;
+}
 
 /** Проблемы конфигурации для показа в UI */
 export function configWarnings(): string[] {
