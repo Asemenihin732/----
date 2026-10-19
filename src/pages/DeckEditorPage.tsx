@@ -3,16 +3,20 @@
  * Ведущий правит ситуацию, варианты, текст шагов, действия и платежи X-Lance
  * и последствия. «Сохранить» кладёт колоду в этот браузер — игра сразу играет
  * ею; «Вернуть базовую» — снова колода с сервера (/deck.json).
+ * «Скачать JSON» / «Загрузить JSON» — колода файлом: передать другому ведущему
+ * или положить на сервер вместо deck.json.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { CardCategory, RoundNumber, TeamId, VariantKey } from '../game/types';
 import {
   deckEntries,
   deckSource,
+  parseDeckFile,
   resetToServerDeck,
   saveBrowserDeck,
   toCard,
   type DeckEntry,
+  type DeckFile,
   type DeckSource,
   type DeckVariant,
 } from '../data/deck';
@@ -126,6 +130,48 @@ export default function DeckEditorPage() {
     setMessage(null);
   };
 
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  /** Скачать то, что сейчас в редакторе (с несохранёнными правками), как deck.json. */
+  const download = () => {
+    const file: DeckFile = { version: 1, cards: tidy(entries) };
+    const blob = new Blob([JSON.stringify(file, null, 2) + '\n'], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'deck.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setMessage({
+      ok: true,
+      text: errors.length
+        ? `Скачано, но в колоде ${errors.length} ошибок — перед игрой их нужно исправить.`
+        : 'Скачан deck.json — его можно передать другому ведущему или положить на сервер вместо базового.',
+    });
+  };
+
+  /** Загрузить колоду из файла в редактор; сохранить — отдельной кнопкой. */
+  const upload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // тот же файл можно выбрать ещё раз
+    if (!file) return;
+    if (dirty && !window.confirm('Заменить несохранённые изменения колодой из файла?')) return;
+    try {
+      const loaded = parseDeckFile(JSON.parse(await file.text()));
+      setEntries(clone(loaded));
+      const found = checkDeck(loaded).filter((x) => x.level === 'error').length;
+      setMessage({
+        ok: found === 0,
+        text:
+          `Загружено из «${file.name}»: карточек ${loaded.length}. ` +
+          (found ? `Ошибок ${found} — исправьте и нажмите «Сохранить».` : 'Проверьте и нажмите «Сохранить», чтобы играть ею.'),
+      });
+      if (found) setShowIssues(true);
+    } catch (err) {
+      setMessage({ ok: false, text: `Файл не подошёл: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  };
+
   const reset = async () => {
     if (!window.confirm('Вернуть базовую колоду с сервера? Изменения из этого браузера будут удалены.')) return;
     await resetToServerDeck();
@@ -156,6 +202,20 @@ export default function DeckEditorPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnOutline} onClick={download} data-testid="deck-download">
+            Скачать JSON
+          </button>
+          <button type="button" className={btnOutline} onClick={() => fileInput.current?.click()}>
+            Загрузить JSON
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            data-testid="deck-upload"
+            onChange={upload}
+          />
           <button type="button" className={btnOutline} onClick={reset} disabled={source !== 'browser' && !dirty}>
             Вернуть базовую
           </button>

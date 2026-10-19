@@ -6,6 +6,7 @@
  *   npx playwright test e2e/deck-editor.spec.ts
  */
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { AUTH_FILE, BASE_URL } from '../playwright.config';
 
 let context: BrowserContext;
@@ -109,4 +110,43 @@ test('автоподсчёт последствий и запрет сохран
 
   await page.getByRole('button', { name: 'Отменить изменения' }).click();
   await expect(page.getByTestId('deck-check')).toContainText('замечаний нет');
+});
+
+test('колода файлом: скачать, загрузить, битый файл', async () => {
+  await page.goto('/deck');
+
+  // скачанный deck.json — та же колода, в формате файла
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('deck-download').click()]);
+  expect(download.suggestedFilename()).toBe('deck.json');
+  const file = JSON.parse(readFileSync(await download.path(), 'utf8')) as { version: number; cards: { team: string; round: number; title: string }[] };
+  expect(file.version).toBe(1);
+  expect(file.cards).toHaveLength(18);
+
+  // изменённый файл загружается в редактор, сохраняется отдельной кнопкой
+  const changed = structuredClone(file);
+  changed.cards.find((c) => c.team === 'merch' && c.round === 2)!.title = 'Логотип из файла';
+  await page.getByTestId('deck-upload').setInputFiles({
+    name: 'my-deck.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(changed)),
+  });
+  await expect(page.getByTestId('deck-message')).toContainText('Загружено из «my-deck.json»: карточек 18');
+  await page.getByTestId('deck-team-merch').click();
+  await page.getByTestId('deck-round-2').click();
+  await expect(titleInput()).toHaveValue('Логотип из файла');
+  await expect(source()).toHaveText('базовая колода с сервера'); // ещё не сохранено
+
+  // битый файл не принимается, правки в редакторе остаются
+  // (правки не сохранены — редактор спрашивает, заменить ли их; соглашаемся)
+  page.once('dialog', (d) => void d.accept());
+  await page.getByTestId('deck-upload').setInputFiles({
+    name: 'broken.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"version": 1, "cards": [{"team": "космос"}]}'),
+  });
+  await expect(page.getByTestId('deck-message')).toContainText('Файл не подошёл');
+  await expect(titleInput()).toHaveValue('Логотип из файла');
+
+  await page.getByRole('button', { name: 'Отменить изменения' }).click();
+  await expect(titleInput()).toHaveValue('Заказчик поменял логотип');
 });
