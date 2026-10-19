@@ -14,13 +14,14 @@
  *   XL_JOIN_EMAIL, XL_JOIN_PASSWORD — служебный аккаунт, админ игровых тенантов;
  *   XL_JOIN_ROLE    — код роли тенанта для участника (по умолчанию TENANT_MEMBER);
  *   XL_JOIN_STORE   — файл списка открытых тенантов (по умолчанию .data/join-tenants.json);
+ *   XL_JOIN_INVITE_TIME — сколько живёт ссылка после открытия (по умолчанию 24h, 0 — без срока);
  *   VITE_XLANCE_API_URL — тот же GraphQL-эндпоинт, что у игры.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { authGql, authStore, requestSignIn } from '../src/api/authStore';
 import { GraphqlError } from '../src/api/graphql';
 import { myAccess, myTenants, type Tenant } from '../src/api/graphqlApi';
-import { loadJoinTenants } from './joinTenants';
+import { activeJoinTenants, loadJoinTenants } from './joinTenants';
 
 export interface JoinRequest {
   tenant: string;
@@ -124,7 +125,7 @@ async function ensureSession(): Promise<void> {
 /** Тенант из списка открытых — по ключу (без учёта регистра) или id; данные — глазами служебного аккаунта */
 async function findAllowedTenant(input: string): Promise<Tenant | null> {
   const wanted = input.trim().toLowerCase();
-  const entry = (await loadJoinTenants()).find((t) => t.id.toLowerCase() === wanted || t.key.toLowerCase() === wanted);
+  const entry = (await activeJoinTenants()).find((t) => t.id.toLowerCase() === wanted || t.key.toLowerCase() === wanted);
   if (!entry) return null;
   return (await myTenants()).find((t) => t.id === entry.id) ?? null;
 }

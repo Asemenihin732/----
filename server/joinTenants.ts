@@ -2,6 +2,10 @@
  * Тенанты, куда открыт вход по ссылке (/join). Список ведёт фасилитатор в админке,
  * хранится JSON-файлом на сервере: XL_JOIN_STORE, по умолчанию .data/join-tenants.json
  * (в git не попадает).
+ *
+ * Ссылка живёт XL_JOIN_INVITE_TIME с момента открытия (по умолчанию 24h; число —
+ * минуты, суффиксы m/h/d: 90m, 12h, 3d; 0 — без срока). Истёкший вход остаётся в
+ * списке — фасилитатор может его продлить, — но участников не пускает.
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -13,9 +17,28 @@ export interface JoinTenant {
   /** почта фасилитатора, открывшего вход */
   addedBy: string;
   addedAt: string;
+  /** до какого момента работает ссылка; null — без срока */
+  expiresAt?: string | null;
 }
 
 const storePath = () => process.env.XL_JOIN_STORE || '.data/join-tenants.json';
+
+const DEFAULT_INVITE_TIME = '24h';
+const UNIT_MS: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000 };
+
+/** Срок жизни ссылки из XL_JOIN_INVITE_TIME, мс; null — без срока */
+export function inviteTimeMs(raw = process.env.XL_JOIN_INVITE_TIME): number | null {
+  const value = (raw?.trim() || DEFAULT_INVITE_TIME).toLowerCase();
+  const m = /^(\d+(?:\.\d+)?)\s*([mhd]?)$/.exec(value);
+  if (!m) {
+    console.warn(`[join] XL_JOIN_INVITE_TIME="${raw}" не разобран — беру ${DEFAULT_INVITE_TIME}`);
+    return inviteTimeMs(DEFAULT_INVITE_TIME);
+  }
+  const ms = Number(m[1]) * UNIT_MS[m[2] || 'm'];
+  return ms > 0 ? ms : null;
+}
+
+export const isExpired = (t: JoinTenant, now = Date.now()) => Boolean(t.expiresAt && Date.parse(t.expiresAt) <= now);
 
 export async function loadJoinTenants(): Promise<JoinTenant[]> {
   try {
@@ -34,12 +57,19 @@ async function save(tenants: JoinTenant[]): Promise<void> {
   await rename(`${path}.tmp`, path);
 }
 
-/** Добавить тенант или обновить его ключ и название */
-export async function upsertJoinTenant(entry: JoinTenant): Promise<void> {
+/** Тенанты, куда вход открыт сейчас (срок ссылки не истёк) */
+export async function activeJoinTenants(): Promise<JoinTenant[]> {
+  return (await loadJoinTenants()).filter((t) => !isExpired(t));
+}
+
+/** Открыть вход или продлить его: срок ссылки отсчитывается заново от addedAt */
+export async function upsertJoinTenant(entry: Omit<JoinTenant, 'expiresAt'>): Promise<void> {
+  const ttl = inviteTimeMs();
+  const opened: JoinTenant = { ...entry, expiresAt: ttl ? new Date(Date.parse(entry.addedAt) + ttl).toISOString() : null };
   const tenants = await loadJoinTenants();
   const i = tenants.findIndex((t) => t.id === entry.id);
-  if (i >= 0) tenants[i] = { ...tenants[i], key: entry.key, name: entry.name };
-  else tenants.push(entry);
+  if (i >= 0) tenants[i] = opened;
+  else tenants.push(opened);
   await save(tenants);
 }
 

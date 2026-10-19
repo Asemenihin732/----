@@ -2,8 +2,11 @@
  * Админка фасилитатора. Пока один раздел — вход по ссылке (/join):
  * в какие тенанты участники могут войти сами, и ссылки для них.
  * Открыть или закрыть вход может только админ тенанта в X-Lance — проверяет сервер.
+ * Ссылка живёт ограниченное время (XL_JOIN_INVITE_TIME на сервере), истёкшую можно продлить.
+ * Под ссылкой — QR-код: его можно показать крупно на экране, чтобы участники отсканировали.
  */
 import { useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { myTenants, type Tenant } from '../api/graphqlApi';
 import { joinAdmin, joinLink, type JoinTenant, type ServiceStatus } from '../api/joinAdmin';
 
@@ -27,6 +30,34 @@ const SERVICE: Record<ServiceStatus, { text: string; cls: string }> = {
   error: { text: 'Не удалось проверить служебный аккаунт', cls: 'border-danger/40 bg-danger/10 text-danger' },
 };
 
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+
+/** Крупный QR поверх страницы — для проектора; закрывается кликом или Esc */
+function QrOverlay({ tenant, onClose }: { tenant: JoinTenant; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div
+      data-testid="admin-qr-overlay"
+      role="dialog"
+      aria-label={`QR-код для входа в ${tenant.name}`}
+      className="fixed inset-0 z-50 flex cursor-zoom-out flex-col items-center justify-center gap-4 bg-black/80 p-4"
+      onClick={onClose}
+    >
+      <div className="rounded-2xl bg-white p-4">
+        <QRCodeSVG value={joinLink(tenant.key)} size={512} marginSize={2} className="h-[min(70vh,80vw)] w-[min(70vh,80vw)]" />
+      </div>
+      <p className="text-center text-lg font-semibold text-white">
+        {tenant.name} · <span className="font-mono">{joinLink(tenant.key)}</span>
+      </p>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [opened, setOpened] = useState<JoinTenant[] | null>(null);
   const [mine, setMine] = useState<Tenant[]>([]);
@@ -34,6 +65,14 @@ export default function AdminPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [bigQr, setBigQr] = useState<JoinTenant | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // срок ссылки истекает на глазах — раз в 30 секунд перепроверяем
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     joinAdmin.list().then(setOpened, (e: Error) => {
@@ -78,8 +117,9 @@ export default function AdminPage() {
       <section className="rounded-2xl border border-line bg-card p-5">
         <h3 className="mb-1 font-semibold text-strong">Вход по ссылке</h3>
         <p className="mb-4 text-sm text-muted">
-          Участники открывают ссылку, вводят почту и получают доступ к тенанту — без вашего участия. Вход
-          работает только в тенанты из этого списка; открыть или закрыть его может админ тенанта.
+          Участники открывают ссылку или сканируют QR-код, вводят почту и получают доступ к тенанту — без
+          вашего участия. Вход работает только в тенанты из этого списка и только пока ссылка не истекла;
+          открыть, продлить или закрыть его может админ тенанта.
         </p>
 
         {error ? (
@@ -121,40 +161,82 @@ export default function AdminPage() {
           </p>
         ) : (
           <ul data-testid="admin-tenants" className="space-y-3">
-            {opened.map((t) => (
-              <li key={t.id} className="rounded-xl border border-line p-4">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-strong">
-                      {t.name} <span className="font-normal text-muted">· {t.key}</span>
-                    </p>
-                    <p className="text-caption text-faint">
-                      открыл {t.addedBy}, {new Date(t.addedAt).toLocaleString('ru-RU')}
-                    </p>
+            {opened.map((t) => {
+              const expired = Boolean(t.expiresAt && Date.parse(t.expiresAt) <= now);
+              return (
+                <li key={t.id} data-testid="admin-tenant" className="rounded-xl border border-line p-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-strong">
+                        {t.name} <span className="font-normal text-muted">· {t.key}</span>
+                      </p>
+                      <p className="text-caption text-faint">
+                        открыл {t.addedBy}, {new Date(t.addedAt).toLocaleString('ru-RU')}
+                      </p>
+                      <p
+                        data-testid="admin-tenant-expiry"
+                        className={`text-caption font-semibold ${expired ? 'text-danger' : 'text-muted'}`}
+                      >
+                        {!t.expiresAt
+                          ? 'Ссылка без срока'
+                          : expired
+                            ? `Срок ссылки истёк ${fmt(t.expiresAt)} — участники не войдут`
+                            : `Ссылка действует до ${fmt(t.expiresAt)}`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="admin-tenant-extend"
+                        className={expired ? btnPrimary : btnOutline}
+                        disabled={busy !== null}
+                        onClick={() => run(`extend:${t.id}`, () => joinAdmin.open(t.id))}
+                      >
+                        {busy === `extend:${t.id}` ? 'Продлеваем…' : 'Продлить'}
+                      </button>
+                      <button
+                      type="button"
+                      className={btnOutline}
+                      disabled={busy !== null}
+                      onClick={() => run(t.id, () => joinAdmin.close(t.id))}
+                    >
+                      {busy === t.id ? 'Закрываем…' : 'Закрыть вход'}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className={btnOutline}
-                    disabled={busy !== null}
-                    onClick={() => run(t.id, () => joinAdmin.close(t.id))}
-                  >
-                    {busy === t.id ? 'Закрываем…' : 'Закрыть вход'}
-                  </button>
-                </div>
-                <div className="mb-2 flex flex-col gap-2 sm:flex-row">
-                  <input readOnly className={`${inputCls} font-mono`} value={joinLink(t.key)} onFocus={(e) => e.target.select()} />
-                  <button type="button" className={btnOutline} onClick={() => copy(t)}>
-                    {copied === t.id ? 'Скопировано' : 'Копировать'}
-                  </button>
-                </div>
-                <p className={`inline-block rounded-full border px-2.5 py-0.5 text-caption font-semibold ${SERVICE[t.service].cls}`}>
-                  {SERVICE[t.service].text}
-                </p>
-              </li>
-            ))}
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row">
+                    <input readOnly className={`${inputCls} font-mono`} value={joinLink(t.key)} onFocus={(e) => e.target.select()} />
+                    <button type="button" className={btnOutline} onClick={() => copy(t)}>
+                      {copied === t.id ? 'Скопировано' : 'Копировать'}
+                    </button>
+                  </div>
+                  <div className={`mb-3 flex items-center gap-4 ${expired ? 'opacity-40' : ''}`}>
+                    <button
+                      type="button"
+                      data-testid="admin-tenant-qr"
+                      title="Показать крупно"
+                      className="shrink-0 cursor-zoom-in rounded-lg bg-white p-2 ring-1 ring-line transition hover:ring-brand"
+                      onClick={() => setBigQr(t)}
+                    >
+                      <QRCodeSVG value={joinLink(t.key)} size={136} marginSize={1} />
+                    </button>
+                    <div className="text-sm text-muted">
+                      <p>QR-код ведёт на ту же ссылку.</p>
+                      <button type="button" className={`${btnOutline} mt-2`} onClick={() => setBigQr(t)}>
+                        Показать крупно
+                      </button>
+                    </div>
+                  </div>
+                  <p className={`inline-block rounded-full border px-2.5 py-0.5 text-caption font-semibold ${SERVICE[t.service].cls}`}>
+                    {SERVICE[t.service].text}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+      {bigQr ? <QrOverlay tenant={bigQr} onClose={() => setBigQr(null)} /> : null}
     </div>
   );
 }

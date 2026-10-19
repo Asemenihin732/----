@@ -13,6 +13,8 @@ export interface JoinTenant {
   name: string;
   addedBy: string;
   addedAt: string;
+  /** до какого момента работает ссылка (XL_JOIN_INVITE_TIME на сервере); null — без срока */
+  expiresAt?: string | null;
   service: ServiceStatus;
 }
 
@@ -39,6 +41,7 @@ async function request(path: string, init: RequestInit = {}): Promise<JoinTenant
 
 export const joinAdmin = {
   list: () => request('/'),
+  /** открыть вход; для открытого — продлить срок ссылки */
   open: (tenantId: string) => request('/', { method: 'POST', body: JSON.stringify({ tenantId }) }),
   close: (tenantId: string) => request(`/${encodeURIComponent(tenantId)}`, { method: 'DELETE' }),
 };
