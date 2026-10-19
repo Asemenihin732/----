@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { defineConfig, type Plugin } from 'vite';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -27,11 +28,45 @@ function deckFile(): Plugin {
   };
 }
 
+/**
+ * Серверная часть входа по ссылке — работает в dev и `vite preview`:
+ *   POST /api/join                 — вход участника в тенант (server/join.ts);
+ *   /api/admin/join-tenants        — админка: куда открыт вход (server/admin.ts).
+ * Модули грузятся при первом запросе — когда окружение из .env уже прочитано.
+ */
+function joinApi(): Plugin {
+  const join = async (req: IncomingMessage, res: ServerResponse) => {
+    const { handleJoinRequest } = await import('./server/join');
+    await handleJoinRequest(req, res);
+  };
+  const admin = async (req: IncomingMessage, res: ServerResponse) => {
+    const { handleAdminJoinTenants } = await import('./server/admin');
+    await handleAdminJoinTenants(req, res);
+  };
+  const mount = (middlewares: { use: (path: string, fn: typeof join) => unknown }) => {
+    middlewares.use('/api/admin/join-tenants', admin);
+    middlewares.use('/api/join', join);
+  };
+  return {
+    name: 'join-api',
+    configureServer(server) {
+      mount(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      mount(server.middlewares);
+    },
+  };
+}
+
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss(), deckFile()],
-  server: {
-    port: 5173,
-    open: true,
-  },
+export default defineConfig(({ mode }) => {
+  // .env → process.env для серверного /api/join (в бандл попадают только VITE_*)
+  Object.assign(process.env, { ...loadEnv(mode, process.cwd(), ''), ...process.env });
+  return {
+    plugins: [react(), tailwindcss(), deckFile(), joinApi()],
+    server: {
+      port: 5173,
+      open: true,
+    },
+  };
 });

@@ -5,11 +5,13 @@ import { SessionProvider, useSession } from './game/store';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { apiConfig } from './api/config';
 import LoginPage from './pages/LoginPage';
+import JoinPage from './pages/JoinPage';
 import SetupPage from './pages/SetupPage';
 import TeamRoundPage from './pages/TeamRoundPage';
 import RoundPage from './pages/RoundPage';
 import ResultsPage from './pages/ResultsPage';
 import DeckEditorPage from './pages/DeckEditorPage';
+import AdminPage from './pages/AdminPage';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -110,6 +112,14 @@ function AppRoutes() {
           </RequireAuth>
         }
       />
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth>
+            <AdminPage />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -134,6 +144,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* вход участника в тенант по ссылке — без авторизации, из меню пока не ведём */}
+            <Route path="/join" element={<JoinPage />} />
             <Route
               path="*"
               element={

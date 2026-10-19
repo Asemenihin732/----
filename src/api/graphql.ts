@@ -43,8 +43,11 @@ function readEndpoint(): string {
     const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
     if (env?.VITE_XLANCE_API_URL) return env.VITE_XLANCE_API_URL.trim();
   } catch {
-    /* вне Vite (например, в Node) env недоступен — используем значение по умолчанию */
+    /* вне Vite (например, в Node) import.meta.env недоступен */
   }
+  // в Node (CLI provision, серверный /api/join) — из переменных окружения процесса
+  const nodeEnv = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
+  if (nodeEnv?.VITE_XLANCE_API_URL) return nodeEnv.VITE_XLANCE_API_URL.trim();
   return DEFAULT_ENDPOINT;
 }
 
