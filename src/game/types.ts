@@ -135,6 +135,10 @@ export interface RoundDecision {
   hadChangeRequestOption: boolean;
   /** Задача, у которой менялась длительность (если применимо) */
   targetTask?: string;
+  /** Сколько ушло на решение, с (с открытия карты, без пауз) — если играли с таймером */
+  spentSeconds?: number;
+  /** Сколько было отведено, с (с учётом «+1 мин») — если играли с таймером */
+  limitSeconds?: number;
 }
 
 /** Текущее состояние команды: базовый и фактический план */
@@ -179,6 +183,30 @@ export interface SessionState {
   /** все раунды завершены */
   finished: boolean;
   createdAt: number;
+  /** время на решение, с; null — без таймера */
+  turnSeconds: number | null;
+  /** идущий отсчёт хода команды (с открытия карты до решения) */
+  turnTimer: TurnTimer | null;
+}
+
+/**
+ * Таймер хода команды. Мягкий режим: по истечении времени выбор не блокируется,
+ * идёт счётчик переработки — решение за фасилитатором.
+ */
+export interface TurnTimer {
+  teamId: TeamId;
+  round: number;
+  /** когда время истекает, мс (на паузе не используется) */
+  deadline: number;
+  /** на паузе — сколько оставалось, мс (может быть < 0 — переработка) */
+  pausedLeft: number | null;
+  /** сколько отведено всего, мс (растёт от «+1 мин») */
+  limitMs: number;
+}
+
+/** Остаток времени хода, мс; < 0 — переработка */
+export function timerLeftMs(timer: TurnTimer, now: number): number {
+  return timer.pausedLeft ?? timer.deadline - now;
 }
 
 export const SAT_MIN = 40;

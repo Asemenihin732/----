@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PROJECTS } from '../data/projects';
-import { useSession } from '../game/store';
+import { DEFAULT_TURN_SECONDS, useSession } from '../game/store';
+import { formatClock } from '../components/TurnTimer';
 import { useAuth } from '../auth/AuthProvider';
 import { formatMoney } from '../game/engine';
 import { LEGEND, ROUND_XLANCE_ACTION } from '../data/gameData';
@@ -17,6 +18,9 @@ const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
 const btnOutline =
   'inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-semibold text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
+/** Готовые варианты времени на решение, с; null — без таймера */
+const TURN_PRESETS: (number | null)[] = [null, 120, 180, 300, 600];
+
 const inputCls =
   'w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-strong outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
@@ -25,6 +29,7 @@ export default function SetupPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [rounds, setRounds] = useState(1);
+  const [turnSeconds, setTurnSeconds] = useState<number | null>(DEFAULT_TURN_SECONDS);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(PROJECTS.slice(0, 2).map((p) => p.id)),
   );
@@ -72,7 +77,7 @@ export default function SetupPage() {
   const start = () => {
     if (!canStart) return;
     clearSyncReports(); // новая игра — статусы отправки прошлых решений больше не нужны
-    dispatch({ type: 'configure', roundCount: rounds, teamIds });
+    dispatch({ type: 'configure', roundCount: rounds, teamIds, turnSeconds });
     navigate(`/team/${teamIds[0]}`);
   };
 
@@ -123,6 +128,45 @@ export default function SetupPage() {
                 <span className="text-sm text-muted">{ROUND_XLANCE_ACTION[r]}</span>
               </div>
             ))}
+          </div>
+
+          <h4 className="mb-1 mt-5 text-sm font-semibold text-strong">Время на решение</h4>
+          <p className="mb-2 text-sm text-muted">
+            Отсчёт идёт с открытия карты. Когда время выйдет, выбор не блокируется — пойдёт счётчик
+            переработки, решение за фасилитатором.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {TURN_PRESETS.map((sec) => (
+              <button
+                key={sec ?? 'off'}
+                type="button"
+                data-testid={`turn-${sec ?? 'off'}`}
+                onClick={() => setTurnSeconds(sec)}
+                className={`h-9 rounded-full px-3.5 text-sm font-semibold transition ${
+                  sec === turnSeconds ? 'bg-brand text-white' : 'bg-soft text-muted hover:bg-soft2'
+                }`}
+              >
+                {sec === null ? 'Без таймера' : `${sec / 60} мин`}
+              </button>
+            ))}
+            <label className="flex items-center gap-1.5 text-sm text-muted">
+              своё:
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                data-testid="turn-custom"
+                className={`${inputCls} w-20`}
+                value={turnSeconds === null ? '' : turnSeconds / 60}
+                placeholder="мин"
+                onChange={(e) => {
+                  const minutes = Number(e.target.value);
+                  setTurnSeconds(e.target.value && minutes > 0 ? Math.round(Math.min(minutes, 30) * 60) : null);
+                }}
+              />
+              мин
+            </label>
           </div>
         </section>
 
@@ -274,6 +318,7 @@ export default function SetupPage() {
           <div className="flex-1">
             <p className="font-bold text-strong">
               Итого: {teamIds.length} команд × {rounds} раундов = {decisions} решений
+              {turnSeconds ? ` · ${formatClock(turnSeconds)} на решение` : ''}
             </p>
             <p className="text-sm text-muted">
               Каждое решение меняет срок, расход, доход и удовлетворённость заказчика — а значит и

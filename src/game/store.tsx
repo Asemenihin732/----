@@ -19,6 +19,7 @@ import {
   type RoundDecision,
   type SessionState,
   type TeamProgress,
+  type TurnTimer,
 } from './types';
 
 export const GAME_STORAGE_KEY = 'xlance-game-v2';
@@ -42,7 +43,14 @@ export function initTeam(id: TeamId): TeamProgress {
   };
 }
 
-export function createSession(roundCount: number, teamIds: TeamId[]): SessionState {
+/** Время на решение по умолчанию — 3 мин, как в методичке (раздел 8) */
+export const DEFAULT_TURN_SECONDS = 180;
+
+export function createSession(
+  roundCount: number,
+  teamIds: TeamId[],
+  turnSeconds: number | null = null,
+): SessionState {
   const teams = {} as Record<TeamId, TeamProgress>;
   for (const id of teamIds) teams[id] = initTeam(id);
   return {
@@ -54,14 +62,22 @@ export function createSession(roundCount: number, teamIds: TeamId[]): SessionSta
     teams,
     finished: false,
     createdAt: Date.now(),
+    turnSeconds: turnSeconds && turnSeconds > 0 ? Math.round(turnSeconds) : null,
+    turnTimer: null,
   };
 }
 
 /* ------------------------------- действия ---------------------------------- */
 
 export type SessionAction =
-  | { type: 'configure'; roundCount: number; teamIds: TeamId[] }
+  | { type: 'configure'; roundCount: number; teamIds: TeamId[]; turnSeconds?: number | null }
   | { type: 'submit'; teamId: TeamId; decision: RoundDecision }
+  /** команда открыла карту — пошёл отсчёт (время передаётся снаружи: редьюсер чистый) */
+  | { type: 'startTurn'; teamId: TeamId; now: number }
+  | { type: 'pauseTurn'; now: number }
+  | { type: 'resumeTurn'; now: number }
+  | { type: 'extendTurn'; seconds: number }
+  | { type: 'restartTurn'; now: number }
   | { type: 'advanceTeam' }
   | { type: 'advanceRound' }
   | { type: 'goto'; index: number }
@@ -87,12 +103,68 @@ function applyDecision(team: TeamProgress, decision: RoundDecision): TeamProgres
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case 'configure':
-      return createSession(action.roundCount, action.teamIds);
+      return createSession(action.roundCount, action.teamIds, action.turnSeconds);
 
     case 'submit': {
       const team = state.teams[action.teamId];
       if (!team) return state;
-      return { ...state, teams: { ...state.teams, [action.teamId]: applyDecision(team, action.decision) } };
+      // решение принято — отсчёт этой команды закончен
+      const turnTimer = state.turnTimer?.teamId === action.teamId ? null : state.turnTimer;
+      return {
+        ...state,
+        turnTimer,
+        teams: { ...state.teams, [action.teamId]: applyDecision(team, action.decision) },
+      };
+    }
+
+    case 'startTurn': {
+      if (!state.turnSeconds) return state;
+      const t = state.turnTimer;
+      // уже идёт отсчёт этой команды в этом раунде — не перезапускаем
+      if (t && t.teamId === action.teamId && t.round === state.round) return state;
+      const limitMs = state.turnSeconds * 1000;
+      const turnTimer: TurnTimer = {
+        teamId: action.teamId,
+        round: state.round,
+        deadline: action.now + limitMs,
+        pausedLeft: null,
+        limitMs,
+      };
+      return { ...state, turnTimer };
+    }
+
+    case 'pauseTurn': {
+      const t = state.turnTimer;
+      if (!t || t.pausedLeft !== null) return state;
+      return { ...state, turnTimer: { ...t, pausedLeft: t.deadline - action.now } };
+    }
+
+    case 'resumeTurn': {
+      const t = state.turnTimer;
+      if (!t || t.pausedLeft === null) return state;
+      return { ...state, turnTimer: { ...t, deadline: action.now + t.pausedLeft, pausedLeft: null } };
+    }
+
+    case 'extendTurn': {
+      const t = state.turnTimer;
+      if (!t) return state;
+      const ms = action.seconds * 1000;
+      return {
+        ...state,
+        turnTimer: {
+          ...t,
+          deadline: t.deadline + ms,
+          pausedLeft: t.pausedLeft === null ? null : t.pausedLeft + ms,
+          limitMs: t.limitMs + ms,
+        },
+      };
+    }
+
+    case 'restartTurn': {
+      const t = state.turnTimer;
+      if (!t || !state.turnSeconds) return state;
+      const limitMs = state.turnSeconds * 1000;
+      return { ...state, turnTimer: { ...t, deadline: action.now + limitMs, pausedLeft: null, limitMs } };
     }
 
     case 'advanceTeam': {
@@ -138,7 +210,10 @@ function loadState(): SessionState {
     const raw = localStorage.getItem(GAME_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as SessionState;
-      if (parsed?.version === STATE_VERSION && Array.isArray(parsed.teamOrder) && parsed.teams) return parsed;
+      if (parsed?.version === STATE_VERSION && Array.isArray(parsed.teamOrder) && parsed.teams) {
+        // сессии, сохранённые до таймера, — играются без него
+        return { ...parsed, turnSeconds: parsed.turnSeconds ?? null, turnTimer: parsed.turnTimer ?? null };
+      }
     }
   } catch {
     /* ignore */

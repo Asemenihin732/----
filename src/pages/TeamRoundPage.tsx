@@ -10,6 +10,7 @@ import { PlanBudgetPanel } from '../components/PlanBudgetPanel';
 import { CardGrid } from '../components/CardGrid';
 import { CardDetail } from '../components/CardDetail';
 import { SyncStatus } from '../components/SyncStatus';
+import { TurnTimer, formatClock } from '../components/TurnTimer';
 import { getProject, type TeamId } from '../data/projects';
 import { designatedCard } from '../data/deck';
 import { useSession } from '../game/store';
@@ -18,7 +19,7 @@ import { apiConfig } from '../api/config';
 import { api } from '../api/api';
 import { syncDecisionToXl } from '../api/decisionSync';
 import { ROUND_XLANCE_ACTION } from '../data/gameData';
-import type { Card, RoundDecision, Variant } from '../game/types';
+import { timerLeftMs, type Card, type RoundDecision, type Variant } from '../game/types';
 import type { XlFinance, XlGanttTask, XlIndicator, XlResource } from '../api/types';
 
 type Round = 1 | 2 | 3;
@@ -56,11 +57,15 @@ export default function TeamRoundPage() {
   const [, setResources] = useState<XlResource[] | null>(null);
   const [, setFinance] = useState<XlFinance | null>(null);
   const [, setIndicators] = useState<XlIndicator[] | null>(null);
-  const [pickedCardId, setPickedCardId] = useState<string | null>(null);
+  // какая команда в каком раунде перевернула карту (экран один на все команды)
+  const [picked, setPicked] = useState<{ teamId: TeamId; round: number } | null>(null);
 
   const round = state.round as Round;
   const decisionsCount = team?.decisions.length ?? 0;
   const roundDecision = decisionsCount >= round;
+  // идёт отсчёт хода этой команды — её карта открыта (переживает перезагрузку и переход между командами)
+  const turnTimer = state.turnTimer;
+  const turnRunning = Boolean(turnTimer && turnTimer.teamId === id && turnTimer.round === round);
 
   /* ------------------------------ данные из API ----------------------------- */
   useEffect(() => {
@@ -95,9 +100,15 @@ export default function TeamRoundPage() {
   /* --------------------------- выбранная карточка ---------------------------- */
   const card: Card | null = useMemo(() => {
     // какую бы из закрытых карт ни выбрали — открывается карточка колоды на этот раунд
-    if (!pickedCardId) return null;
+    const pickedHere = picked?.teamId === id && picked.round === round;
+    if (!pickedHere && !turnRunning) return null;
     return designatedCard(id, round);
-  }, [pickedCardId, id, round]);
+  }, [picked, turnRunning, id, round]);
+
+  // карта открыта — пошёл отсчёт времени на решение (если таймер включён)
+  useEffect(() => {
+    if (card && inSession && !roundDecision) dispatch({ type: 'startTurn', teamId: id, now: Date.now() });
+  }, [card, inSession, roundDecision, id, dispatch]);
 
   /* ------------------------------- навигация -------------------------------- */
   const idx = state.teamOrder.indexOf(id);
@@ -168,6 +179,10 @@ export default function TeamRoundPage() {
       hadChangeRequestOption: card.variants.some((v) => v.isChangeRequest),
       targetTask: variant.targetTask,
     };
+    if (turnRunning && turnTimer) {
+      decision.spentSeconds = Math.round((turnTimer.limitMs - timerLeftMs(turnTimer, Date.now())) / 1000);
+      decision.limitSeconds = Math.round(turnTimer.limitMs / 1000);
+    }
     dispatch({ type: 'submit', teamId: project.id, decision });
     // фиксируем действие в X-Lance
     void syncDecisionToXl({
@@ -176,7 +191,7 @@ export default function TeamRoundPage() {
       variant,
       decision,
     });
-    setPickedCardId(null);
+    setPicked(null);
   };
 
   return (
@@ -198,7 +213,8 @@ export default function TeamRoundPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <TurnTimer teamId={id} />
           <div className="flex gap-1.5">
             {state.teamOrder.map((t) => {
               const done = (state.teams[t]?.decisions.length ?? 0) >= round;
@@ -432,6 +448,22 @@ export default function TeamRoundPage() {
                   decisionThisRound.deltaSatisfaction === 0 && (
                     <span className="rounded-full bg-soft px-2 py-0.5 text-muted">без изменений</span>
                   )}
+                {decisionThisRound.spentSeconds !== undefined && decisionThisRound.limitSeconds ? (
+                  <span
+                    data-testid="decision-time"
+                    className={`rounded-full px-2 py-0.5 ${
+                      decisionThisRound.spentSeconds > decisionThisRound.limitSeconds
+                        ? 'bg-danger/10 font-semibold text-danger'
+                        : 'bg-soft text-muted'
+                    }`}
+                  >
+                    решение за {formatClock(decisionThisRound.spentSeconds)} из{' '}
+                    {formatClock(decisionThisRound.limitSeconds)}
+                    {decisionThisRound.spentSeconds > decisionThisRound.limitSeconds
+                      ? ` · сверх ${formatClock(decisionThisRound.spentSeconds - decisionThisRound.limitSeconds)}`
+                      : ''}
+                  </span>
+                ) : null}
               </div>
               {!decidedCard ? (
                 <div className="mx-auto mb-5 max-w-xl rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-left text-sm text-warn">
@@ -474,7 +506,7 @@ export default function TeamRoundPage() {
               <CardDetail card={card} accent={project.accent} onChoose={chooseVariant} />
             </motion.div>
           ) : (
-            <CardGrid accent={project.accent} onPick={setPickedCardId} />
+            <CardGrid accent={project.accent} onPick={() => setPicked({ teamId: id, round })} />
           )}
         </div>
       </section>
