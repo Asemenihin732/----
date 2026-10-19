@@ -8,9 +8,11 @@
  *   3. платежи              → исходящие/входящие платежи из сценария карточки
  *                             (если карточка их не описывает — из её денежных
  *                             изменений, см. cardPayments);
- *   4. удовлетворённость    → пользовательский показатель 40–130 %;
- *   5. журнал и отчёт       → запись о каждой операции + отчёт по пунктам
+ *   4. журнал и отчёт       → запись о каждой операции + отчёт по пунктам
  *                             (syncReports.ts) для статуса и повтора в интерфейсе.
+ *
+ * Удовлетворённость заказчика в X-Lance не отправляется: в X-Lance такого
+ * показателя пока нет, она считается только в игре.
  *
  * Ошибки не прерывают игру. `only` — ключи пунктов для повтора: выполняются
  * только они, остальные пункты отчёта сохраняются как были.
@@ -21,7 +23,7 @@ import { cardPayments, syncCardPayments } from './paymentSync';
 import { describeAction, runCardActions } from './taskActions';
 import { MODULE_LABELS, moduleForAction } from './config';
 import { loadSyncReport, markSyncPending, mergeSyncItems, saveSyncReport, type SyncItem, type SyncReport } from './syncReports';
-import { clampSatisfaction, formatSignedDays, formatSignedRub } from '../game/engine';
+import { formatSignedDays, formatSignedRub } from '../game/engine';
 import type { TeamId } from '../data/projects';
 import type { Card, RoundDecision, Variant, XlAction } from '../game/types';
 
@@ -30,8 +32,6 @@ export interface SyncDecisionParams {
   card: Card;
   variant: Variant;
   decision: RoundDecision;
-  /** Удовлетворённость до решения — чтобы отправить итоговое значение показателя. */
-  satisfactionBefore: number;
 }
 
 /** Действие меняет деньги проекта: трудозатраты, исполнители, новая работа с людьми. */
@@ -165,20 +165,10 @@ export async function syncDecisionToXl(params: SyncDecisionParams, only?: Set<st
     }
   }
 
-  /* ----------------------- 4. удовлетворённость заказчика ------------------- */
-  if (want('satisfaction')) {
-    const value = clampSatisfaction(params.satisfactionBefore + decision.deltaSatisfaction);
-    const label = `удовлетворённость заказчика → ${value} %`;
-    try {
-      await api.indicators.setValue(teamId, 'customer-satisfaction', value);
-      items.push({ key: 'satisfaction', kind: 'satisfaction', financial: false, label, ok: true });
-    } catch (error) {
-      journalLog(teamId, MODULE_LABELS['custom-metrics'], `${action} · удовлетворённость`, false, payload, String(error));
-      items.push({ key: 'satisfaction', kind: 'satisfaction', financial: false, label, ok: false, error: String(error) });
-    }
-  }
+  // Удовлетворённость заказчика считается только в игре: в X-Lance такого
+  // показателя пока нет, поэтому туда она не отправляется.
 
-  /* --------------------------- 5. журнал и отчёт ---------------------------- */
+  /* --------------------------- 4. журнал и отчёт ---------------------------- */
   journalLog(teamId, module, action, items.every((i) => i.ok), payload);
   const prev = loadSyncReport(teamId, decision.round);
   const report: SyncReport = {

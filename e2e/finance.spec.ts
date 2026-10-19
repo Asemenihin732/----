@@ -47,6 +47,27 @@ interface Row {
   status: 'OK' | 'ПРОБЛЕМЫ';
   note: string;
   issues: string[];
+  /** Сдвиг окончания проекта в X-Lance, рабочих дней, и на карточке */
+  daysXl?: number;
+  daysCard?: number;
+  /** Нефинансовые пункты, которые не дошли до X-Lance (из статуса отправки) */
+  notSent?: string[];
+}
+
+/** Рабочих дней между датами YYYY-MM-DD (выходные не считаются). */
+function workdaysBetween(from?: string | null, to?: string | null): number {
+  if (!from || !to || from === to) return 0;
+  const sign = to > from ? 1 : -1;
+  const [a, b] = sign > 0 ? [from, to] : [to, from];
+  const d = new Date(`${a}T00:00:00Z`);
+  const end = new Date(`${b}T00:00:00Z`);
+  let n = 0;
+  while (d < end) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return sign * n;
 }
 // Строки отчёта пишутся в файл сразу: после упавшего теста воркер перезапускается,
 // и память модуля теряется. Файл очищается в e2e/global-setup.ts.
@@ -231,6 +252,18 @@ for (const { card, variant } of cases) {
     if (ui.syncState !== 'ok') issues.push(`интерфейс: ${ui.syncText.replace(/\s+/g, ' ')}`);
     const { cost, income, expected } = checkDecision(team, variant, before, after, issues);
 
+    // срок: окончание проекта в X-Lance сдвинулось на столько рабочих дней, сколько на карточке
+    const daysXl = workdaysBetween(before.end?.slice(0, 10), after.end?.slice(0, 10));
+    const daysCard = variant.deltaDays ?? 0;
+    if (daysXl !== daysCard) issues.push(`срок: в X-Lance ${daysXl > 0 ? '+' : ''}${daysXl} раб. дн., на карточке ${daysCard > 0 ? '+' : ''}${daysCard}`);
+
+    // нефинансовые пункты отправки, которые не прошли (интерфейс помечает их «✕»)
+    const notSent = ui.syncText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('✕'))
+      .map((l) => l.replace(/^✕\s*/, ''));
+
     const onCard = cardMoneyOf(variant);
     const gap = ACCEPTED_GAPS[`${team}:${round}:${variant.key}`];
     addRow({
@@ -245,6 +278,9 @@ for (const { card, variant } of cases) {
       status: issues.length ? 'ПРОБЛЕМЫ' : 'OK',
       note: gap ? `принятое расхождение с карточкой: ${gap}` : '',
       issues,
+      daysXl,
+      daysCard,
+      notSent,
     });
     test.info().annotations.push(...issues.map((description) => ({ type: 'проблема', description })));
     expect(issues, issues.join('\n')).toEqual([]);
@@ -264,11 +300,13 @@ function writeReport() {
     '',
     'Деньги — «расход / доход», ₽. «Ожидалось» — модель xlMoneyOf (платежи + труд по ставкам плана), «X-Lance» — projectCost + projectFinance.',
     '',
-    '| Команда | Р. | Карточка | Вариант | Карточка | Ожидалось | X-Lance | Окончание проекта | Итог |',
-    '|---|---|---|---|---|---|---|---|---|',
+    'Срок — сдвиг окончания проекта, рабочих дней: «карточка / X-Lance».',
+    '',
+    '| Команда | Р. | Карточка | Вариант | Карточка | Ожидалось | X-Lance | Срок | Окончание проекта | Итог |',
+    '|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map(
       (r) =>
-        `| ${r.team} | ${r.round} | ${r.card} | ${r.variant} | ${r.cardMoney} | ${r.expected} | ${r.actual} | ${r.end} | ${r.status}${r.note ? ` ¹` : ''} |`,
+        `| ${r.team} | ${r.round} | ${r.card} | ${r.variant} | ${r.cardMoney} | ${r.expected} | ${r.actual} | ${r.daysCard ?? 0} / ${r.daysXl ?? 0} | ${r.end} | ${r.status}${r.note ? ` ¹` : ''} |`,
     ),
     '',
     ...rows.filter((r) => r.note).map((r) => `¹ ${r.team} р${r.round} ${r.variant}: ${r.note}`),
@@ -278,6 +316,14 @@ function writeReport() {
     ...(rows.some((r) => r.issues.length)
       ? rows.filter((r) => r.issues.length).flatMap((r) => [`### ${r.team} · раунд ${r.round} · ${r.variant}`, ...r.issues.map((i) => `- ${i}`), ''])
       : ['Нет.']),
+    '',
+    '## Не дошло до X-Lance (не деньги)',
+    '',
+    ...(rows.some((r) => r.notSent?.length)
+      ? [...new Set(rows.flatMap((r) => (r.notSent ?? []).map((x) => x.replace(/\d+ %/, 'N %'))))].map(
+          (x) => `- ${x} — вариантов: ${rows.filter((r) => r.notSent?.some((y) => y.replace(/\d+ %/, 'N %') === x)).length}`,
+        )
+      : ['Всё дошло.']),
   ];
   writeFileSync('e2e/results/finance-report.md', lines.join('\n'));
 }

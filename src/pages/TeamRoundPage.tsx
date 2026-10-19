@@ -146,7 +146,6 @@ export default function TeamRoundPage() {
             card: decidedCard,
             variant: decidedVariant,
             decision: decisionThisRound,
-            satisfactionBefore: team.satisfaction - decisionThisRound.deltaSatisfaction,
           },
           new Set(keys),
         )
@@ -175,7 +174,6 @@ export default function TeamRoundPage() {
       card,
       variant,
       decision,
-      satisfactionBefore: team.satisfaction,
     });
     setPickedCardId(null);
   };
