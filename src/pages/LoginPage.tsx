@@ -147,7 +147,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mt-5 text-center text-sm text-muted">
+          {/* <div className="mt-5 text-center text-sm text-muted">
             {isSignup ? 'Уже есть аккаунт? ' : 'Нет аккаунта? '}
             <button
               type="button"
@@ -159,7 +159,7 @@ export default function LoginPage() {
             >
               {isSignup ? 'Войти' : 'Зарегистрироваться'}
             </button>
-          </div>
+          </div> */}
 
           <p className="mt-4 text-center text-xs text-faint">
             API: {GRAPHQL_ENDPOINT}

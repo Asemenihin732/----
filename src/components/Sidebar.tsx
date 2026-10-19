@@ -36,12 +36,12 @@ const IconAdmin = () => (
   </svg>
 );
 
-// const IconJoin = () => (
-//   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-//     <circle cx="10" cy="8" r="3.5" />
-//     <path d="M3.5 19a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6" strokeLinecap="round" />
-//   </svg>
-// );
+const IconJoin = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <circle cx="10" cy="8" r="3.5" />
+    <path d="M3.5 19a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6" strokeLinecap="round" />
+  </svg>
+);
 
 /* ----------------------------------- меню ---------------------------------- */
 
