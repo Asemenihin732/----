@@ -27,7 +27,7 @@ export const ACCEPTED_GAPS: Record<string, string> = {
 };
 
 /** Ожидаемое изменение денег в X-Lance от варианта решения команды. */
-export function xlMoneyOf(teamId: TeamId, variant: Variant): XlMoney {
+export function xlMoneyOf(teamId: TeamId, variant: Pick<Variant, 'payments' | 'actions'>): XlMoney {
   const plan = getPlan(teamId);
   const rate = (name: string) => plan.resources.find((r) => r.name === name && r.kind === 'HUMAN')?.ratePerDay ?? 0;
 

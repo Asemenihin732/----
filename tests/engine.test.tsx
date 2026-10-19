@@ -5,7 +5,8 @@
 import { formatMoney, formatPct, teamTotals, rankTeams, nominations } from '../src/game/engine';
 import { createSession, initTeam, sessionReducer } from '../src/game/store';
 import type { RoundDecision, TeamProgress } from '../src/game/types';
-import { deckCards, designatedCard } from '../src/data/deck';
+import { deckCards, deckEntries, designatedCard, type DeckEntry } from '../src/data/deck';
+import { calcVariant, checkDeck } from '../src/game/deckCheck';
 import { PROJECTS, type TeamId } from '../src/data/projects';
 import { getPlan } from '../src/data/plan';
 import { ACCEPTED_GAPS, cardMoneyOf, xlMoneyOf } from '../src/game/xlMoney';
@@ -211,6 +212,53 @@ check('модель: дизайнер снят (−14 000), менеджер +1 
   income: 0,
 });
 check('колода — ровно 18 карточек из файла', deckCards.length, 18);
+
+/* ---------- конфигуратор: автоподсчёт и проверки колоды ---------- */
+check('базовая колода проходит проверки конфигуратора', checkDeck(deckEntries), []);
+const entryOf = (team: TeamId, round: number) => deckEntries.find((e) => e.team === team && e.round === round)!;
+check('расчёт: дегустация +1 день', calcVariant('catering', entryOf('catering', 1).variants.A!), {
+  days: 1,
+  cost: 70_000,
+  labor: 45_000,
+  income: 0,
+});
+check('расчёт: ночная смена параллельно — срок не растёт', calcVariant('stage', entryOf('stage', 2).variants.A!), {
+  days: 0,
+  cost: 15_000,
+  labor: 15_000,
+  income: 0,
+});
+check('расчёт: закрыть афтепати раньше — сокращение расхода', calcVariant('afterparty', entryOf('afterparty', 2).variants.B!), {
+  days: 0,
+  cost: -20_000,
+  labor: 0,
+  income: 0,
+});
+const broken: DeckEntry[] = JSON.parse(JSON.stringify(deckEntries));
+const tasting = broken.find((e) => e.team === 'catering' && e.round === 1)!;
+tasting.variants.A!.actions = [{ type: 'duration', task: 'Нет такой задачи', days: 1 }];
+tasting.variants.C!.payments = [{ name: 'Доставка образцов', amount: -10_000, expenseItem: 'Нет такой статьи' }];
+delete tasting.variants.B;
+broken.splice(broken.findIndex((e) => e.team === 'merch' && e.round === 3), 1);
+check(
+  'проверки ловят поломки: задача, статья, вариант, раунд',
+  checkDeck(broken)
+    .filter((x) => x.level === 'error')
+    .map((x) => `${x.team}:${x.round ?? ''}:${x.variant ?? ''} ${x.text}`),
+  [
+    'merch:3: нет карточки на раунд 3',
+    'catering:1: нужны три варианта: A, B и C',
+    'catering:1:A длительность: задачи «Нет такой задачи» нет в плане команды',
+    'catering:1:C платёж «Доставка образцов»: статьи «Нет такой статьи» нет в бюджете',
+  ],
+);
+check(
+  'проверки предупреждают, когда карточка расходится с действиями',
+  checkDeck(broken)
+    .filter((x) => x.level === 'warning')
+    .map((x) => `${x.team}:${x.round}:${x.variant} ${x.text}`),
+  ['catering:1:A расход на карточке 70 000 ₽, по действиям 25 000 ₽', 'catering:1:A труд на карточке 45 000 ₽, по действиям 0 ₽'],
+);
 check(
   'у каждой команды своя карточка на каждый из раундов 1–3',
   PROJECTS.every((p) => [1, 2, 3].every((r) => designatedCard(p.id, r)?.team === p.id)),

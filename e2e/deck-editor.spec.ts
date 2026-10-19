@@ -83,3 +83,30 @@ test('правка, сохранение, отмена и возврат к ба
   await expect(source()).toHaveText('базовая колода с сервера');
   await expect(titleInput()).toHaveValue('Кофемашина сдалась первой');
 });
+
+test('автоподсчёт последствий и запрет сохранения с ошибками', async () => {
+  await page.goto('/deck');
+  await expect(page.getByTestId('deck-check')).toContainText('замечаний нет');
+  await page.getByTestId('deck-team-catering').click();
+  await page.getByTestId('deck-round-1').click();
+
+  // сумма платежа изменилась — карточка расходится с расчётом, «Подставить расчёт» чинит
+  await page.getByTestId('payment-C-0').locator('input[type=number]').fill('12000');
+  await expect(page.getByTestId('apply-calc-C')).toBeVisible();
+  await expect(page.getByTestId('deck-check')).toContainText('предупреждений 1');
+  await page.getByTestId('apply-calc-C').click();
+  await expect(page.getByTestId('calc-C')).toContainText('совпадает с карточкой');
+  await expect(page.getByTestId('consequences-C')).toContainText('+12 000 ₽ расход');
+
+  // ошибка (вариант без названия) — сохранить нельзя
+  await page.getByTestId('editor-variant-A').getByLabel('Название варианта').fill('');
+  await expect(page.getByTestId('issues-A')).toContainText('нет названия варианта');
+  await expect(page.getByTestId('deck-check')).toContainText('ошибок 1');
+  await page.screenshot({ path: 'e2e/results/deck-editor-check.png', fullPage: true });
+  await page.getByTestId('deck-save').click();
+  await expect(page.getByTestId('deck-message')).toContainText('Не сохранено');
+  await expect(source()).toHaveText('базовая колода с сервера');
+
+  await page.getByRole('button', { name: 'Отменить изменения' }).click();
+  await expect(page.getByTestId('deck-check')).toContainText('замечаний нет');
+});

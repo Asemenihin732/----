@@ -9,6 +9,8 @@ import type { CardPayment, TeamId, XlAction } from '../../game/types';
 import type { DeckVariant } from '../../data/deck';
 import { getPlan } from '../../data/plan';
 import { getProject } from '../../data/projects';
+import { calcVariant, cardConsequences, type DeckIssue } from '../../game/deckCheck';
+import { formatMoney, formatSignedDays, formatSignedRub } from '../../game/engine';
 import { btnDelete, btnSmall, Field, inputCls, NumberInput, Select, TextInput } from './fields';
 
 interface Props {
@@ -18,6 +20,8 @@ interface Props {
   onChange: (v: DeckVariant) => void;
   /** Бонусная карточка: название варианта фиксированное («Принять») */
   bonus?: boolean;
+  /** Ошибки и предупреждения проверки этого варианта */
+  issues?: DeckIssue[];
 }
 
 const ACTION_LABELS: Record<XlAction['type'], string> = {
@@ -48,7 +52,7 @@ function deltaTaskName(actions: XlAction[] | undefined): string {
   return 'Проект';
 }
 
-export function VariantEditor({ team, variantKey, variant, onChange, bonus }: Props) {
+export function VariantEditor({ team, variantKey, variant, onChange, bonus, issues = [] }: Props) {
   const plan = getPlan(team);
   const tasks = plan.tasks.map((t) => t.name);
   const people = plan.resources.filter((r) => r.kind === 'HUMAN').map((r) => r.name);
@@ -89,6 +93,22 @@ export function VariantEditor({ team, variantKey, variant, onChange, bonus }: Pr
       value: p,
       label: people.includes(p) ? p : `${p} (нет в плане)`,
     }));
+  // последствия по действиям и платежам — как их посчитает X-Lance
+  const calc = calcVariant(team, variant);
+  const onCard = cardConsequences(variant);
+  const matches =
+    calc.cost === onCard.cost &&
+    calc.income === onCard.income &&
+    calc.days === onCard.days &&
+    (!onCard.labor || onCard.labor === calc.labor);
+  const applyCalc = () =>
+    set({
+      deltaDays: calc.days ? { taskName: deltaTaskName(variant.actions), deltaDay: calc.days } : undefined,
+      deltaCost: calc.cost || undefined,
+      laborCost: calc.labor || undefined,
+      deltaRevenue: calc.income || undefined,
+    });
+
   const itemOptions = [{ value: '', label: '— без статьи —' }, ...budgetItems.map((b) => ({ value: b, label: b }))];
 
   return (
@@ -112,6 +132,21 @@ export function VariantEditor({ team, variantKey, variant, onChange, bonus }: Pr
           </label>
         )}
       </div>
+
+      {issues.length > 0 && (
+        <ul className="space-y-1" data-testid={`issues-${variantKey}`}>
+          {issues.map((x, i) => (
+            <li
+              key={i}
+              className={`rounded-lg px-3 py-1.5 text-sm ${
+                x.level === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-600'
+              }`}
+            >
+              {x.level === 'error' ? 'Ошибка' : 'Проверьте'}: {x.text}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* шаги — текст на карточке */}
       <Field label="Что сделать в X-Lance — текст на карточке (по шагу в строке)">
@@ -214,6 +249,25 @@ export function VariantEditor({ team, variantKey, variant, onChange, bonus }: Pr
       {/* последствия */}
       <section>
         <h4 className="mb-2 text-sm font-semibold text-strong">Последствия в игре</h4>
+        <div
+          data-testid={`calc-${variantKey}`}
+          className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-card px-3 py-2 text-sm"
+        >
+          <span className="text-muted">По действиям и платежам:</span>
+          <span className="text-strong">
+            {calc.days ? `${formatSignedDays(calc.days)} к сроку · ` : ''}
+            {calc.cost ? formatSignedRub(calc.cost) : '0 ₽'} расход
+            {calc.labor ? ` (в т. ч. труд ${formatMoney(calc.labor)})` : ''}
+            {calc.income ? ` · ${formatSignedRub(calc.income)} доход` : ''}
+          </span>
+          {matches ? (
+            <span className="text-emerald-600">✓ совпадает с карточкой</span>
+          ) : (
+            <button type="button" className={btnSmall} onClick={applyCalc} data-testid={`apply-calc-${variantKey}`}>
+              Подставить расчёт
+            </button>
+          )}
+        </div>
         <div className="grid gap-2 sm:grid-cols-5">
           <Field label="Срок, ± дн.">
             <NumberInput

@@ -19,6 +19,7 @@ import {
 import { PROJECTS, getProject } from '../data/projects';
 import { categoryLabels } from '../data/labels';
 import { CardDetail } from '../components/CardDetail';
+import { checkDeck, type DeckIssue } from '../game/deckCheck';
 import { VariantEditor } from '../components/deck/VariantEditor';
 import { btnOutline, btnPrimary, Field, inputCls, Select, TextInput } from '../components/deck/fields';
 
@@ -61,6 +62,12 @@ export default function DeckEditorPage() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  const issues = useMemo(() => checkDeck(entries), [entries]);
+  const errors = issues.filter((x) => x.level === 'error');
+  const warnings = issues.filter((x) => x.level === 'warning');
+  const issuesOf = (t: TeamId, r?: RoundNumber) => issues.filter((x) => x.team === t && (r === undefined || x.round === r));
+  const [showIssues, setShowIssues] = useState(false);
+
   const index = entries.findIndex((e) => e.team === team && e.round === round);
   const entry = index >= 0 ? entries[index] : null;
   const project = getProject(team);
@@ -97,6 +104,11 @@ export default function DeckEditorPage() {
   };
 
   const save = () => {
+    if (errors.length) {
+      setMessage({ ok: false, text: `Не сохранено: ошибок в колоде — ${errors.length}. Исправьте отмеченное красным.` });
+      setShowIssues(true);
+      return;
+    }
     try {
       const next = tidy(entries);
       saveBrowserDeck(next);
@@ -164,6 +176,44 @@ export default function DeckEditorPage() {
         </p>
       )}
 
+      {/* итог проверки */}
+      <div className="rounded-lg border border-line bg-card px-3 py-2 text-sm" data-testid="deck-check">
+        <button type="button" className="text-left" onClick={() => setShowIssues(!showIssues)}>
+          {issues.length === 0 ? (
+            <span className="text-emerald-600">✓ Проверка колоды: замечаний нет</span>
+          ) : (
+            <>
+              <span className="text-strong">Проверка колоды: </span>
+              <span className={errors.length ? 'text-red-500' : 'text-muted'}>ошибок {errors.length}</span>
+              <span className="text-muted"> · </span>
+              <span className={warnings.length ? 'text-amber-600' : 'text-muted'}>предупреждений {warnings.length}</span>
+              <span className="ml-2 text-faint">{showIssues ? 'скрыть' : 'показать'}</span>
+            </>
+          )}
+        </button>
+        {showIssues && issues.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {issues.map((x, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className="text-left hover:underline"
+                  onClick={() => {
+                    setTeam(x.team);
+                    if (x.round) setRound(x.round);
+                  }}
+                >
+                  <span className={x.level === 'error' ? 'text-red-500' : 'text-amber-600'}>●</span>{' '}
+                  {getProject(x.team).shortName}
+                  {x.round ? `, раунд ${x.round}` : ''}
+                  {x.variant ? `, вариант ${x.variant}` : ''}: {x.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* команды и раунды */}
       <div className="flex flex-wrap gap-2">
         {PROJECTS.map((p) => (
@@ -177,6 +227,7 @@ export default function DeckEditorPage() {
             }`}
           >
             {p.emoji} {p.number}. {p.shortName}
+            <IssueDot issues={issuesOf(p.id)} />
           </button>
         ))}
       </div>
@@ -196,6 +247,7 @@ export default function DeckEditorPage() {
               <span className="block text-caption uppercase tracking-wide text-faint">
                 Раунд {r}
                 {e?.bonus ? ' · бонус' : ''}
+                <IssueDot issues={issuesOf(team, r)} />
               </span>
               <span className="block truncate text-sm font-semibold text-strong">{e ? e.title : '— нет карточки —'}</span>
             </button>
@@ -236,6 +288,18 @@ export default function DeckEditorPage() {
                 Бонусная
               </label>
             </div>
+            {issuesOf(team, round)
+              .filter((x) => !x.variant)
+              .map((x, i) => (
+                <p
+                  key={i}
+                  className={`rounded-lg px-3 py-1.5 text-sm ${
+                    x.level === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-600'
+                  }`}
+                >
+                  {x.level === 'error' ? 'Ошибка' : 'Проверьте'}: {x.text}
+                </p>
+              ))}
             <Field label="Ситуация (описание на карточке)">
               <textarea
                 className={`${inputCls} min-h-[4.5rem]`}
@@ -251,6 +315,7 @@ export default function DeckEditorPage() {
                 variantKey={k}
                 variant={entry.variants[k]!}
                 bonus={entry.bonus}
+                issues={issuesOf(team, round).filter((x) => x.variant === k)}
                 onChange={(v) => setVariant(k, v)}
               />
             ))}
@@ -268,5 +333,17 @@ export default function DeckEditorPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Точка у команды или раунда: красная — есть ошибки, жёлтая — предупреждения. */
+function IssueDot({ issues }: { issues: DeckIssue[] }) {
+  if (!issues.length) return null;
+  const error = issues.some((x) => x.level === 'error');
+  return (
+    <span
+      title={error ? 'есть ошибки' : 'есть предупреждения'}
+      className={`ml-1.5 inline-block h-2 w-2 rounded-full align-middle ${error ? 'bg-red-500' : 'bg-amber-500'}`}
+    />
   );
 }
