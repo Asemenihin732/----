@@ -19,12 +19,9 @@ export interface XlMoney {
 
 /**
  * Принятые расхождения X-Lance с числами карточки: в X-Lance честная стоимость,
- * в игре — числа с карточки. Ключ — `${team}:${round}:${variant}`.
+ * в игре — числа с карточки (сейчас таких нет). Ключ — `${team}:${round}:${variant}`.
  */
-export const ACCEPTED_GAPS: Record<string, string> = {
-  'merch:1:A': 'ушедший дизайнер больше не оплачивается (−14 000), фрилансер — платёж 40 000',
-  'merch:1:B': 'ушедший дизайнер больше не оплачивается (−14 000), менеджер доделывает за добавленный день',
-};
+export const ACCEPTED_GAPS: Record<string, string> = {};
 
 /** Ожидаемое изменение денег в X-Lance от варианта решения команды. */
 export function xlMoneyOf(teamId: TeamId, variant: Pick<Variant, 'payments' | 'actions'>): XlMoney {
