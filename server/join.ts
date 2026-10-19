@@ -8,11 +8,15 @@
  *
  * Шаги: служебный вход → тенант из списка открытых (его ведёт фасилитатор в
  * админке, server/joinTenants.ts) → права админа → человек-ресурс с этой почтой
- * (нет — создаём) → приглашение с ролью.
+ * (нет — создаём) → в каждый проект тенанта с проектной ролью (по умолчанию
+ * «Наблюдатель»: видит проекты и работы, ничего не меняет) → приглашение с ролью.
+ * Проекты добавляем и тем, у кого доступ уже был, — вдруг появились новые.
  *
  * Окружение:
  *   XL_JOIN_EMAIL, XL_JOIN_PASSWORD — служебный аккаунт, админ игровых тенантов;
  *   XL_JOIN_ROLE    — код роли тенанта для участника (по умолчанию TENANT_MEMBER);
+ *   XL_JOIN_PROJECT_ROLE — код или название проектной роли во всех проектах тенанта
+ *                    (по умолчанию PROJECT_VIEWER; none — в проекты не добавлять);
  *   XL_JOIN_STORE   — файл списка открытых тенантов (по умолчанию .data/join-tenants.json);
  *   XL_JOIN_INVITE_TIME — сколько живёт ссылка после открытия (по умолчанию 24h, 0 — без срока);
  *   VITE_XLANCE_API_URL — тот же GraphQL-эндпоинт, что у игры.
@@ -20,7 +24,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { authGql, authStore, requestSignIn } from '../src/api/authStore';
 import { GraphqlError } from '../src/api/graphql';
-import { myAccess, myTenants, type Tenant } from '../src/api/graphqlApi';
+import { createProjectResource, myAccess, myTenants, projects, type Tenant } from '../src/api/graphqlApi';
 import { activeJoinTenants, loadJoinTenants } from './joinTenants';
 
 export interface JoinRequest {
@@ -105,6 +109,42 @@ const INVITE = /* GraphQL */ `
   }
 `;
 
+const PROJECT_ROLES = /* GraphQL */ `
+  query JoinProjectRoles($input: FindManyProjectRolesInput!) {
+    projectRoles(input: $input) {
+      id
+      code
+      name
+    }
+  }
+`;
+
+const PROJECT_LINKS = /* GraphQL */ `
+  query JoinProjectLinks($input: FindManyProjectResourcesInput!) {
+    projectResources(input: $input) {
+      id
+      resourceId
+      enabled
+      roleIds
+    }
+  }
+`;
+
+const UPDATE_PROJECT_LINK = /* GraphQL */ `
+  mutation JoinUpdateProjectLink($input: UpdateProjectResourceInput!) {
+    updateProjectResource(input: $input) {
+      id
+    }
+  }
+`;
+
+interface ProjectLink {
+  id: string;
+  resourceId: string;
+  enabled?: boolean;
+  roleIds?: string[] | null;
+}
+
 interface Human {
   id: string;
   invitedEmail?: string | null;
@@ -166,6 +206,40 @@ async function roleIds(tenantId: string): Promise<string[]> {
   return [role.id];
 }
 
+/** Проектная роль участника из XL_JOIN_PROJECT_ROLE; null — в проекты не добавляем */
+async function projectRoleId(tenantId: string): Promise<string | null> {
+  const wanted = (env().XL_JOIN_PROJECT_ROLE || 'PROJECT_VIEWER').trim();
+  if (wanted.toLowerCase() === 'none') return null;
+  const data = await authGql<{ projectRoles: { id: string; code: string; name: string }[] }>(PROJECT_ROLES, {
+    input: { tenantId, take: 100 },
+  });
+  const role = data.projectRoles.find((r) => r.code === wanted || r.name === wanted);
+  if (!role) throw new Error(`Проектная роль «${wanted}» не найдена в тенанте`);
+  return role.id;
+}
+
+/**
+ * Добавить человека во все проекты тенанта с проектной ролью. Уже состоит в проекте —
+ * дописываем роль к его ролям (не отнимая прежние) и включаем, если был выключен.
+ */
+export async function addToProjects(tenantId: string, resourceId: string): Promise<void> {
+  const roleId = await projectRoleId(tenantId);
+  if (!roleId) return;
+  for (const project of await projects(tenantId)) {
+    const links = await authGql<{ projectResources: ProjectLink[] }>(PROJECT_LINKS, {
+      input: { tenantId, projectId: project.id, resourceId, take: 500 },
+    });
+    const link = links.projectResources.find((l) => l.resourceId === resourceId);
+    if (!link) {
+      await createProjectResource({ tenantId, projectId: project.id, resourceId, roles: [roleId] });
+    } else if (!link.roleIds?.includes(roleId) || link.enabled === false) {
+      await authGql(UPDATE_PROJECT_LINK, {
+        input: { id: link.id, tenantId, projectId: project.id, enabled: true, roleIds: [...new Set([...(link.roleIds ?? []), roleId])] },
+      });
+    }
+  }
+}
+
 async function findHuman(tenantId: string, email: string): Promise<Human | null> {
   const data = await authGql<{ resources: Human[] }>(HUMANS, {
     input: { tenantId, resourceType: ['HUMAN'], take: 1000 },
@@ -198,13 +272,15 @@ export async function join(req: JoinRequest): Promise<JoinResponse> {
 
   const tenantRoleIds = await roleIds(tenant.id);
   let human = await findHuman(tenant.id, email);
-  if (human?.accessStatus === 'ACTIVE') return done('ACTIVE');
   if (!human) {
     const created = await authGql<{ createResource: { id: string } }>(CREATE_HUMAN, {
       input: { tenantId: tenant.id, resourceType: 'HUMAN', firstName, lastName, email, tenantRoleIds },
     });
     human = { id: created.createResource.id };
   }
+  // до приглашения: если проекты не добавились, повторный вход не пришлёт лишнее письмо
+  await addToProjects(tenant.id, human.id);
+  if (human.accessStatus === 'ACTIVE') return done('ACTIVE');
   const invited = await authGql<{ inviteHumanResource: { id: string; accessStatus?: string } }>(INVITE, {
     input: { id: human.id, tenantId: tenant.id, email, tenantRoleIds },
   });
