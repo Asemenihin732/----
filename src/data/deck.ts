@@ -158,7 +158,8 @@ function toVariant(key: VariantKey, d: DeckVariant): Variant {
   };
 }
 
-function toCard(entry: DeckEntry): Card {
+/** Карточка игры из записи колоды (её же показывает превью конфигуратора). */
+export function toCard(entry: DeckEntry): Card {
   return {
     id: `deck-${entry.team}-${entry.round}`,
     team: entry.team,
@@ -173,12 +174,15 @@ function toCard(entry: DeckEntry): Card {
 
 /** Все карточки текущей колоды в порядке файла (меняется `setDeck`). */
 export let deckCards: Card[] = [];
+/** Текущая колода в формате файла — её правит конфигуратор. */
+export let deckEntries: DeckEntry[] = [];
 /** Откуда взята текущая колода. */
 export let deckSource: DeckSource = 'bundled';
 let designated = new Map<string, Card>();
 
 /** Сделать колоду текущей. */
 export function setDeck(entries: DeckEntry[], source: DeckSource): void {
+  deckEntries = entries;
   deckCards = entries.map(toCard);
   deckSource = source;
   designated = new Map(deckCards.map((card) => [`${card.team}:${card.round}`, card]));
@@ -192,23 +196,52 @@ setDeck(parseDeckFile(baseDeckFile), 'bundled');
  * сервера → копия из бандла. Битая колода пропускается с предупреждением.
  */
 export async function loadDeck(): Promise<DeckSource> {
+  if (readBrowserDeck()) return deckSource;
+  await loadServerDeck();
+  return deckSource;
+}
+
+/** Колода, сохранённая в этом браузере, — если есть и корректна. */
+function readBrowserDeck(): boolean {
   try {
     const saved = localStorage.getItem(DECK_STORAGE_KEY);
-    if (saved) {
-      setDeck(parseDeckFile(JSON.parse(saved)), 'browser');
-      return deckSource;
-    }
+    if (!saved) return false;
+    setDeck(parseDeckFile(JSON.parse(saved)), 'browser');
+    return true;
   } catch (e) {
     console.warn('Колода из браузера не подошла, берём с сервера:', e);
+    return false;
   }
+}
+
+/** Базовая колода с сервера (/deck.json), при ошибке — копия из сборки. */
+async function loadServerDeck(): Promise<void> {
   try {
     const res = await fetch(new URL('deck.json', document.baseURI), { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     setDeck(parseDeckFile(await res.json()), 'server');
   } catch (e) {
     console.warn('deck.json с сервера не загрузился, играем базовой колодой из сборки:', e);
+    setDeck(parseDeckFile(baseDeckFile), 'bundled');
   }
-  return deckSource;
+}
+
+/** Сохранить колоду в этом браузере и сразу играть ею. Ошибка формата — исключение. */
+export function saveBrowserDeck(entries: DeckEntry[]): void {
+  const file: DeckFile = { version: 1, cards: entries };
+  const checked = parseDeckFile(JSON.parse(JSON.stringify(file)));
+  localStorage.setItem(DECK_STORAGE_KEY, JSON.stringify(file));
+  setDeck(checked, 'browser');
+}
+
+/** Забыть колоду браузера и вернуться к базовой с сервера. */
+export async function resetToServerDeck(): Promise<void> {
+  try {
+    localStorage.removeItem(DECK_STORAGE_KEY);
+  } catch {
+    // хранилище недоступно — колоды браузера и так нет
+  }
+  await loadServerDeck();
 }
 
 /** Карточка, которая выпадает команде в раундах 1–3 при выборе любой закрытой карты. */

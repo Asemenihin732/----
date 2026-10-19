@@ -22,11 +22,19 @@ const IconTrophy = () => (
   </svg>
 );
 
+const IconCards = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="4" y="6" width="11" height="14" rx="2" />
+    <path d="M9 4h9a2 2 0 0 1 2 2v12" strokeLinecap="round" />
+  </svg>
+);
+
 /* ----------------------------------- меню ---------------------------------- */
 
 const NAV = [
   { to: '/', label: 'Игра', icon: <IconGame /> },
   { to: '/results', label: 'Итоги', icon: <IconTrophy /> },
+  { to: '/deck', label: 'Колода', icon: <IconCards /> },
 ];
 
 interface Props {

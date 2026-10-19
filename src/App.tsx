@@ -9,6 +9,7 @@ import SetupPage from './pages/SetupPage';
 import TeamRoundPage from './pages/TeamRoundPage';
 import RoundPage from './pages/RoundPage';
 import ResultsPage from './pages/ResultsPage';
+import DeckEditorPage from './pages/DeckEditorPage';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -98,6 +99,14 @@ function AppRoutes() {
         element={
           <RequireAuth>
             <ResultsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/deck"
+        element={
+          <RequireAuth>
+            <DeckEditorPage />
           </RequireAuth>
         }
       />

@@ -8,20 +8,23 @@ interface Props {
   card: Card;
   accent: string;
   onChoose: (variant: Variant) => void;
+  /** Варианты друг под другом (узкая колонка, превью конфигуратора) */
+  stacked?: boolean;
 }
 
-export function CardDetail({ card, accent, onChoose }: Props) {
+export function CardDetail({ card, accent, onChoose, stacked }: Props) {
   const theme = accentFor(accent);
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key={card.id}
-        initial={{ opacity: 0, rotateY: -90 }}
+        // превью конфигуратора меняется на каждый ввод — без анимации переворота
+        key={stacked ? 'preview' : card.id}
+        initial={stacked ? false : { opacity: 0, rotateY: -90 }}
         animate={{ opacity: 1, rotateY: 0 }}
         exit={{ opacity: 0, rotateY: 90 }}
         transition={{ duration: 0.35 }}
-        className={`flex flex-col rounded-2xl border bg-card p-5 lg:min-h-0 lg:flex-1 ${theme.border}`}
+        className={`flex flex-col rounded-2xl border bg-card p-5 ${stacked ? '' : 'lg:min-h-0 lg:flex-1'} ${theme.border}`}
       >
         {/* шапка: категория и заголовок в одну строку, ниже — описание */}
         <div className="shrink-0">
@@ -38,17 +41,23 @@ export function CardDetail({ card, accent, onChoose }: Props) {
         </div>
 
         {/* варианты: на широких экранах — колонками рядом на всю оставшуюся высоту */}
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:auto-cols-fr lg:grid-flow-col">
+        <div
+          className={`mt-4 grid grid-cols-1 gap-3 ${
+            stacked ? '' : 'lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:auto-cols-fr lg:grid-flow-col'
+          }`}
+        >
           {card.variants.map((variant, i) => (
             <motion.button
               key={variant.key}
               type="button"
-              initial={{ opacity: 0, y: 10 }}
+              initial={stacked ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 + i * 0.08 }}
               data-testid={`variant-${variant.key}`}
               onClick={() => onChoose(variant)}
-              className="flex flex-col items-start gap-2 rounded-xl border border-line bg-soft p-4 text-left transition-colors hover:border-brand/50 hover:bg-soft2 lg:overflow-y-auto"
+              className={`flex flex-col items-start gap-2 rounded-xl border border-line bg-soft p-4 text-left transition-colors hover:border-brand/50 hover:bg-soft2 ${
+                stacked ? '' : 'lg:overflow-y-auto'
+              }`}
             >
               <span className="flex items-start gap-3">
                 <span
