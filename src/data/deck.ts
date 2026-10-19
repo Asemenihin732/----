@@ -31,6 +31,8 @@ interface DeckVariant {
   deltaDays?: { taskName: string; deltaDay: number };
   /** Изменение расходов, ₽ (минус — расход уменьшается) */
   deltaCost?: number;
+  /** Сколько из расхода — труд (в «Последствиях»: «в т. ч. труд …»), ₽ */
+  laborCost?: number;
   /** Изменение дохода, ₽ */
   deltaRevenue?: number;
   /** Изменение удовлетворённости заказчика, п.п. */
@@ -95,7 +97,8 @@ const DECK: DeckEntry[] = [
         label: 'Провести дегустацию повторно',
         actions: [{ type: 'duration', task: 'Дегустация и корректировка меню', days: 1 }],
         deltaDays: { taskName: 'Дегустация и корректировка меню', deltaDay: 1 },
-        deltaCost: 70_000, // в т. ч. труд 45 000 ₽
+        deltaCost: 70_000,
+        laborCost: 45_000,
         deltaSatisfaction: 5,
         payments: [{ name: 'Повторная дегустация', amount: -25_000, expenseItem: 'Продукты' }],
         steps: [
@@ -130,7 +133,8 @@ const DECK: DeckEntry[] = [
         label: 'Воспроизвести близко к оригиналу',
         actions: [{ type: 'duration', task: 'Подготовка блюд', days: 1 }],
         deltaDays: { taskName: 'Подготовка блюд', deltaDay: 1 },
-        deltaCost: 115_000, // в т. ч. труд 30 000 ₽
+        deltaCost: 115_000,
+        laborCost: 30_000,
         deltaSatisfaction: 15,
         payments: [{ name: 'Премиальное меню', amount: -85_000, expenseItem: 'Продукты' }],
         steps: [
@@ -147,7 +151,8 @@ const DECK: DeckEntry[] = [
           { type: 'duration', task: 'Подготовка блюд', days: 1 },
         ],
         deltaDays: { taskName: 'Подготовка блюд', deltaDay: 1 },
-        deltaCost: 115_000, // в т. ч. труд 30 000 ₽
+        deltaCost: 115_000,
+        laborCost: 30_000,
         deltaRevenue: 150_000,
         deltaSatisfaction: 10,
         isChangeRequest: true,
@@ -223,7 +228,8 @@ const DECK: DeckEntry[] = [
         label: 'Оставить, но отключить сердечки',
         actions: [{ type: 'duration', task: 'Настройка звука и света', days: 1 }],
         deltaDays: { taskName: 'Настройка звука и света', deltaDay: 1 },
-        deltaCost: 15_000, // труд
+        deltaCost: 15_000,
+        laborCost: 15_000,
         deltaSatisfaction: -10,
         steps: [
           'Увеличить длительность задачи «Настройка звука и света» +1 дн. к сроку',
@@ -258,7 +264,7 @@ const DECK: DeckEntry[] = [
             assign: [{ resource: 'Звукорежиссёр', days: 1 }],
           },
         ],
-        deltaCost: 15_000, // труд
+        deltaCost: 15_000, // труд; на карточке без пометки «в т. ч. труд»
         deltaSatisfaction: 5,
         steps: [
           'Создать задачу «Устранение наводки» на ночь перед Днём Х, исполнитель — звукорежиссёр',
@@ -275,7 +281,8 @@ const DECK: DeckEntry[] = [
           { type: 'labor', task: 'Технический прогон', resource: 'Звукорежиссёр', days: 1 },
         ],
         deltaDays: { taskName: 'Технический прогон', deltaDay: 1 },
-        deltaCost: 33_000, // труд
+        deltaCost: 33_000,
+        laborCost: 33_000,
         deltaSatisfaction: -5,
         steps: [
           'Увеличить длительность задачи «Технический прогон» +1 дн. к сроку',
@@ -333,7 +340,8 @@ const DECK: DeckEntry[] = [
         label: 'Переписать сценарий под единорога',
         actions: [{ type: 'duration', task: 'Концепция активностей', days: 1 }],
         deltaDays: { taskName: 'Концепция активностей', deltaDay: 1 },
-        deltaCost: 28_000, // труд
+        deltaCost: 28_000,
+        laborCost: 28_000,
         deltaSatisfaction: 5,
         steps: [
           'Увеличить длительность задачи «Концепция активностей» +1 дн. к сроку',
@@ -359,7 +367,8 @@ const DECK: DeckEntry[] = [
         label: 'Сделать AI-фотобудку',
         actions: [AI_PHOTO_BOOTH],
         deltaDays: { taskName: 'AI-фотобудка', deltaDay: 1 },
-        deltaCost: 83_000, // в т. ч. труд 28 000 ₽
+        deltaCost: 83_000,
+        laborCost: 28_000,
         deltaSatisfaction: 15,
         payments: [{ name: 'AI-фотобудка', amount: -55_000, expenseItem: 'Реквизит' }],
         steps: [
@@ -376,7 +385,8 @@ const DECK: DeckEntry[] = [
           AI_PHOTO_BOOTH,
         ],
         deltaDays: { taskName: 'AI-фотобудка', deltaDay: 1 },
-        deltaCost: 83_000, // в т. ч. труд 28 000 ₽
+        deltaCost: 83_000,
+        laborCost: 28_000,
         deltaRevenue: 120_000,
         deltaSatisfaction: 10,
         isChangeRequest: true,
@@ -455,7 +465,8 @@ const DECK: DeckEntry[] = [
           { type: 'duration', task: 'Дизайн-макеты', days: 1 },
         ],
         deltaDays: { taskName: 'Дизайн-макеты', deltaDay: 1 },
-        deltaCost: 20_000, // в т. ч. труд 15 000 ₽
+        deltaCost: 20_000,
+        laborCost: 15_000,
         deltaSatisfaction: -5,
         payments: [{ name: 'Переработки', amount: -5_000 }],
         steps: [
@@ -485,7 +496,8 @@ const DECK: DeckEntry[] = [
         label: 'Перепечатать весь тираж за свой счёт',
         actions: [{ type: 'duration', task: 'Печать тиража', days: 2 }],
         deltaDays: { taskName: 'Печать тиража', deltaDay: 2 },
-        deltaCost: 204_000, // в т. ч. труд 74 000 ₽
+        deltaCost: 204_000,
+        laborCost: 74_000,
         deltaSatisfaction: 10,
         payments: [{ name: 'Перепечатка тиража', amount: -130_000, expenseItem: 'Печать тиража' }],
         steps: [
@@ -502,7 +514,8 @@ const DECK: DeckEntry[] = [
           { type: 'duration', task: 'Печать тиража', days: 2 },
         ],
         deltaDays: { taskName: 'Печать тиража', deltaDay: 2 },
-        deltaCost: 204_000, // в т. ч. труд 74 000 ₽
+        deltaCost: 204_000,
+        laborCost: 74_000,
         deltaRevenue: 250_000,
         deltaSatisfaction: 10,
         isChangeRequest: true,
@@ -609,7 +622,8 @@ const DECK: DeckEntry[] = [
         label: 'Переклеить срочно',
         actions: [{ type: 'duration', task: 'Бронирование трансферов', days: 1 }],
         deltaDays: { taskName: 'Бронирование трансферов', deltaDay: 1 },
-        deltaCost: 46_000, // в т. ч. труд 26 000 ₽
+        deltaCost: 46_000,
+        laborCost: 26_000,
         deltaSatisfaction: 5,
         payments: [{ name: 'Перебрендирование', amount: -20_000, expenseItem: 'Прочие расходы' }],
         steps: [
@@ -679,7 +693,8 @@ const DECK: DeckEntry[] = [
           },
         ],
         deltaDays: { taskName: 'Монтаж танцевального настила', deltaDay: 1 },
-        deltaCost: 51_000, // в т. ч. труд 16 000 ₽
+        deltaCost: 51_000,
+        laborCost: 16_000,
         deltaSatisfaction: 5,
         payments: [{ name: 'Настил', amount: -35_000, expenseItem: 'Свет и декор' }],
         steps: [
@@ -698,7 +713,8 @@ const DECK: DeckEntry[] = [
         label: 'Искать другую площадку',
         actions: [{ type: 'duration', task: 'Подбор и бронирование площадки', days: 1 }],
         deltaDays: { taskName: 'Подбор и бронирование площадки', deltaDay: 1 },
-        deltaCost: 76_000, // в т. ч. труд 16 000 ₽
+        deltaCost: 76_000,
+        laborCost: 16_000,
         payments: [{ name: 'Новая площадка', amount: -60_000, expenseItem: 'Аренда площадки' }],
         steps: [
           'Увеличить длительность задачи «Подбор и бронирование площадки» +1 дн. к сроку',
@@ -741,7 +757,8 @@ const DECK: DeckEntry[] = [
         label: 'Перенести в закрытое помещение',
         actions: [{ type: 'duration', task: 'Проведение и закрытие площадки', days: 1 }],
         deltaDays: { taskName: 'Проведение и закрытие площадки', deltaDay: 1 },
-        deltaCost: 96_000, // в т. ч. труд 61 000 ₽
+        deltaCost: 96_000,
+        laborCost: 61_000,
         payments: [{ name: 'Аренда закрытого зала', amount: -35_000, expenseItem: 'Аренда площадки' }],
         steps: [
           'Увеличить длительность задачи «Проведение и закрытие площадки» +1 дн. к сроку',
@@ -762,7 +779,8 @@ const DECK: DeckEntry[] = [
         label: 'Пригласить блогера',
         actions: [BLOGGER_SHOW],
         deltaDays: { taskName: 'Выступление блогера', deltaDay: 1 },
-        deltaCost: 106_000, // в т. ч. труд 16 000 ₽
+        deltaCost: 106_000,
+        laborCost: 16_000,
         deltaSatisfaction: 15,
         payments: [{ name: 'Гонорар блогера', amount: -90_000 }],
         steps: [
@@ -776,7 +794,8 @@ const DECK: DeckEntry[] = [
         label: 'Оформить запрос на изменение',
         actions: [{ type: 'manual', text: 'Согласовать с Заказчиком оплачиваемое изменение' }, BLOGGER_SHOW],
         deltaDays: { taskName: 'Выступление блогера', deltaDay: 1 },
-        deltaCost: 106_000, // в т. ч. труд 16 000 ₽
+        deltaCost: 106_000,
+        laborCost: 16_000,
         deltaRevenue: 135_000,
         deltaSatisfaction: 10,
         isChangeRequest: true,
@@ -809,6 +828,7 @@ function toVariant(key: VariantKey, d: DeckVariant): Variant {
     deltaDays: d.deltaDays?.deltaDay,
     targetTask: d.deltaDays?.taskName,
     deltaCost: d.deltaCost,
+    laborCost: d.laborCost,
     deltaRevenue: d.deltaRevenue,
     deltaSatisfaction: d.deltaSatisfaction,
     isChangeRequest: d.isChangeRequest,

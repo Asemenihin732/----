@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Card, Variant } from '../game/types';
 import { accentFor } from '../data/theme';
 import { categoryEmoji, categoryLabels } from '../data/labels';
-import { formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
+import { formatMoney, formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
 
 interface Props {
   card: Card;
@@ -63,30 +63,8 @@ export function CardDetail({ card, accent, onChoose }: Props) {
                   запрос на изменение
                 </span>
               )}
-              <span className="flex flex-wrap gap-2 text-sm">
-                {variant.deltaDays ? (
-                  <Chip negative={variant.deltaDays > 0}>{formatSignedDays(variant.deltaDays)} к сроку</Chip>
-                ) : null}
-                {variant.deltaCost ? (
-                  <Chip negative={variant.deltaCost > 0}>{formatSignedRub(variant.deltaCost)} расход</Chip>
-                ) : null}
-                {variant.deltaRevenue ? (
-                  <Chip negative={false}>{formatSignedRub(variant.deltaRevenue)} доход</Chip>
-                ) : null}
-                {variant.deltaSatisfaction ? (
-                  <Chip negative={variant.deltaSatisfaction < 0}>
-                    {formatSignedPct(variant.deltaSatisfaction)} удовл.
-                  </Chip>
-                ) : null}
-                {!variant.deltaDays &&
-                !variant.deltaCost &&
-                !variant.deltaRevenue &&
-                !variant.deltaSatisfaction ? (
-                  <Chip negative={false}>без последствий</Chip>
-                ) : null}
-              </span>
               {variant.xlanceSteps && (
-                <ul className="mt-auto space-y-0.5 pt-1 text-sm text-muted">
+                <ul className="space-y-0.5 pt-1 text-sm text-muted">
                   {variant.xlanceSteps.map((step, i) => (
                     <li key={i} className="flex gap-1.5">
                       <span className="text-faint">→</span>
@@ -95,6 +73,35 @@ export function CardDetail({ card, accent, onChoose }: Props) {
                   ))}
                 </ul>
               )}
+              {/* подпись снизу: что решение даёт в игре */}
+              <span data-testid={`consequences-${variant.key}`} className="mt-auto w-full border-t border-line pt-2">
+                <span className="mb-1 block text-caption uppercase tracking-wide text-faint">Последствия в игре</span>
+                <span className="flex flex-wrap gap-2 text-sm">
+                  {variant.deltaDays ? (
+                    <Chip negative={variant.deltaDays > 0}>{formatSignedDays(variant.deltaDays)} к сроку</Chip>
+                  ) : null}
+                  {variant.deltaCost ? (
+                    <Chip negative={variant.deltaCost > 0}>
+                      {formatSignedRub(variant.deltaCost)} расход
+                      {variant.laborCost ? ` (в т. ч. труд ${formatMoney(variant.laborCost)})` : ''}
+                    </Chip>
+                  ) : null}
+                  {variant.deltaRevenue ? (
+                    <Chip negative={false}>{formatSignedRub(variant.deltaRevenue)} доход</Chip>
+                  ) : null}
+                  {variant.deltaSatisfaction ? (
+                    <Chip negative={variant.deltaSatisfaction < 0}>
+                      {formatSignedPct(variant.deltaSatisfaction)} удовлетворённости
+                    </Chip>
+                  ) : null}
+                  {!variant.deltaDays &&
+                  !variant.deltaCost &&
+                  !variant.deltaRevenue &&
+                  !variant.deltaSatisfaction ? (
+                    <Chip negative={false}>без последствий</Chip>
+                  ) : null}
+                </span>
+              </span>
             </motion.button>
           ))}
         </div>

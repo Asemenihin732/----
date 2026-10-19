@@ -73,6 +73,8 @@ export interface Variant {
   label: string;
   deltaDays?: number;
   deltaCost?: number;
+  /** Сколько из `deltaCost` — труд (X-Lance пересчитывает сам), ₽ */
+  laborCost?: number;
   deltaRevenue?: number;
   deltaSatisfaction?: number;
   /** Вариант требует оформления запроса на изменение */
