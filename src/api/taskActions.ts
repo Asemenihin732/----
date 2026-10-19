@@ -130,7 +130,13 @@ async function runOne(ctx: Context, teamId: TeamId, action: XlAction): Promise<O
       const rid = resourceId(ctx, action.resource);
       const assignments = toAssignmentInputs(task);
       const current = assignments.find((a) => a.resourceId === rid);
-      if (!current) throw new Error(`«${action.resource}» не назначен на «${action.task}»`);
+      if (!current) {
+        // доп. работа ресурса, которого нет на задаче (например, на вехе) — назначаем его
+        if (action.days <= 0) throw new Error(`«${action.resource}» не назначен на «${action.task}»`);
+        const work = action.days * HOURS_PER_DAY;
+        await saveAssignments(ctx, task, [...assignments, { resourceId: rid, planWork: work }]);
+        return { ok: true, message: `назначен, ${action.days} чел.-дн.` };
+      }
       const work = (current.planWork ?? 0) + action.days * HOURS_PER_DAY;
       const next =
         work > 0

@@ -3,7 +3,8 @@
  *
  * Используется в http-режиме при решении команды по карточке: находим задачу
  * проекта по имени из колоды (`deltaDays.taskName`), перечитываем её версии
- * и отправляем `updateTask` с новой длительностью. X-Lance сам пересчитает
+ * и отправляем `updateTask` с новой длительностью и работой под неё (загрузка
+ * сохраняется, стоимость растёт вместе со сроком). X-Lance сам пересчитает
  * даты и связи.
  *
  * Если конкретной задачи нет (например, вариант «Запрос на изменение») —
@@ -77,6 +78,18 @@ export function toAssignmentInputs(task: TaskInfo, durationDays = task.duration)
   );
 }
 
+/**
+ * Назначения под новую длительность с сохранением загрузки: работа (а с ней и
+ * стоимость) растёт пропорционально сроку. Загрузка берётся текущая, по
+ * умолчанию — 100%: 2 дня × 8 ч × 100% = 16 ч.
+ */
+export function scaleWorkToDuration(task: TaskInfo, durationDays: number): AssignmentInput[] {
+  return (task.assignments ?? []).map((a) => {
+    const units = a.units ?? 100;
+    return { resourceId: a.resourceId, units, planWork: durationDays * HOURS_PER_DAY * (units / 100) };
+  });
+}
+
 /** Предшественники задачи в формате входа `updateTask` (без изменений). */
 export function toPredecessorInputs(task: TaskInfo): PredecessorInput[] {
   return (task.predecessors ?? []).map((p) => ({
@@ -127,7 +140,7 @@ export async function changeTaskDurationViaXl(
     contentVersion: fresh.contentVersion ?? 0,
     scheduleVersion: fresh.scheduleVersion ?? 0,
     duration: next,
-    assignments: toAssignmentInputs(fresh, next),
+    assignments: scaleWorkToDuration(fresh, next),
     predecessors: toPredecessorInputs(fresh),
   });
 

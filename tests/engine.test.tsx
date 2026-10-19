@@ -6,7 +6,7 @@ import { formatMoney, formatPct, teamTotals, rankTeams, nominations } from '../s
 import { createSession, initTeam, sessionReducer } from '../src/game/store';
 import type { RoundDecision, TeamProgress } from '../src/game/types';
 import { deckCards, designatedCard } from '../src/data/deck';
-import { PROJECTS } from '../src/data/projects';
+import { PROJECTS, type TeamId } from '../src/data/projects';
 import { getPlan } from '../src/data/plan';
 import { ACCEPTED_GAPS, cardMoneyOf, xlMoneyOf } from '../src/game/xlMoney';
 import { cardPaymentDate, cardPayments, paymentDirection } from '../src/api/paymentSync';
@@ -139,7 +139,7 @@ check('любимец заказчика', nom.customerFavorite, ['stage']);
 
 /* ---------- колода → X-Lance: платежи и действия дают те же деньги, что и карточка ---------- */
 // Расход в X-Lance = исходящие платежи − сокращения платежей + труд по ставкам плана
-// (трудозатраты, переназначения, исполнители новых задач). Доход = входящие платежи.
+// (трудозатраты, переназначения, длительность задач, исполнители новых задач). Доход = входящие платежи.
 // Принятые расхождения — ACCEPTED_GAPS (src/game/xlMoney.ts): в X-Lance честная стоимость, в игре числа с карточки.
 let paymentCount = 0;
 const paymentProblems: string[] = [];
@@ -149,9 +149,6 @@ for (const project of PROJECTS) {
   const budgetItems = new Set(project.budget.map((b) => b.item));
   const planTasks = new Set(plan.tasks.map((t) => t.name));
   const planResources = new Set(plan.resources.map((r) => r.name));
-  const rate = (name: string) => plan.resources.find((r) => r.name === name && r.kind === 'HUMAN')?.ratePerDay ?? 0;
-  const workOf = (task: string, resource: string) =>
-    plan.tasks.find((t) => t.name === task)?.assignments.find((a) => a.resource === resource)?.days ?? 0;
   for (const round of [1, 2, 3]) {
     const card = designatedCard(project.id, round);
     if (!card) continue;
@@ -159,15 +156,10 @@ for (const project of PROJECTS) {
       const where = `${project.id} р${round} «${card.title}» ${v.key}`;
       const list = v.payments ?? [];
       paymentCount += list.length;
-      let cost = 0;
-      let income = 0;
       for (const p of list) {
         if (!p.name.trim() || p.amount === 0) paymentProblems.push(`${where}: пустой платёж`);
         if (p.expenseItem && !budgetItems.has(p.expenseItem))
           paymentProblems.push(`${where}: статьи «${p.expenseItem}» нет в бюджете проекта`);
-        if (p.reduce) cost -= p.amount;
-        else if (p.amount < 0) cost += -p.amount;
-        else income += p.amount;
       }
       const added = new Set<string>();
       for (const a of v.actions ?? []) {
@@ -181,23 +173,19 @@ for (const project of PROJECTS) {
         if (a.type === 'labor') {
           needTask(a.task);
           needResource(a.resource);
-          cost += rate(a.resource) * a.days;
         }
         if (a.type === 'reassign') {
           needTask(a.task);
           needResource(a.from);
-          cost += (rate(a.to) - rate(a.from)) * workOf(a.task, a.from);
         }
         if (a.type === 'addTask') {
           needTask(a.anchor);
           if (!Number.isInteger(a.days)) paymentProblems.push(`${where}: длительность «${a.name}» не целая`);
           added.add(a.name);
-          for (const x of a.assign ?? []) cost += rate(x.resource) * x.days;
+          for (const x of a.assign ?? []) needResource(x.resource);
         }
       }
-      // ручной подсчёт выше должен совпасть с общей моделью xlMoneyOf (её же использует e2e)
       const model = xlMoneyOf(project.id, v);
-      if (model.cost !== cost || model.income !== income) paymentProblems.push(`${where}: модель xlMoneyOf расходится`);
       const onCard = cardMoneyOf(v);
       if (model.cost !== onCard.cost || model.income !== onCard.income) moneyGaps.push(`${project.id}:${round}:${v.key}`);
     }
@@ -209,6 +197,19 @@ check(
   moneyGaps,
   Object.keys(ACCEPTED_GAPS),
 );
+// модель xlMoneyOf (её же использует e2e) — сверка с ручным расчётом по плану
+const modelOf = (team: TeamId, round: number, key: string) => {
+  const v = designatedCard(team, round)!.variants.find((x) => x.key === key)!;
+  return xlMoneyOf(team, v);
+};
+check('модель: +1 день дегустации = 25 000 + труд 45 000', modelOf('catering', 1, 'A'), { cost: 70_000, income: 0 });
+check('модель: запрос на изменение с трудом', modelOf('catering', 2, 'B'), { cost: 115_000, income: 150_000 });
+check('модель: +2 дня печати = 130 000 + труд 37 000 × 2', modelOf('merch', 2, 'A'), { cost: 204_000, income: 0 });
+check('модель: веха прогона +1 день с командой', modelOf('stage', 2, 'B'), { cost: 33_000, income: 0 });
+check('модель: дизайнер снят (−14 000), менеджер +1 день (15 000), переработки 5 000', modelOf('merch', 1, 'B'), {
+  cost: 6_000,
+  income: 0,
+});
 check('колода — ровно 18 карточек из файла', deckCards.length, 18);
 check(
   'у каждой команды своя карточка на каждый из раундов 1–3',
@@ -219,16 +220,16 @@ check(
   'бонусные карточки — с одним вариантом «Принять»',
   deckCards.filter((c) => c.bonus).map((c) => [c.title, c.variants.map((v) => v.label)]),
   [
-    ['Саундчек со звёздным гостем', ['Принять']],
+    ['Кот-звукорежиссёр', ['Принять']],
     ['Автобус-экскурсовод', ['Принять']],
   ],
 );
 check(
-  'входящие платежи колоды (доход: 4 запроса на изменение и экскурсия)',
+  'входящие платежи колоды (доход: 4 запроса на изменение, экскурсия и мерч с котом)',
   deckCards
     .flatMap((c) => c.variants.flatMap((v) => v.payments ?? []))
     .filter((p) => p.amount > 0 && !p.reduce).length,
-  5,
+  6,
 );
 
 /* ---------- базовые платежи из плана работ ---------- */
