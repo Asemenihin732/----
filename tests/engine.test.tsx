@@ -119,7 +119,7 @@ for (let i = 0; i < 2; i++) {
 }
 check('коридор 40 при −50 п.п.', s2.teams.catering.satisfaction, 50);
 
-/* ---------- 5а. Таймер хода (мягкий режим) ---------- */
+/* ---------- 5а. Таймер хода (мягкий режим, ниже нуля не считаем) ---------- */
 let tm = createSession(1, ['catering', 'stage']);
 tm = sessionReducer(tm, { type: 'startTurn', teamId: 'catering', now: 0 });
 check('без таймера отсчёт не идёт', tm.turnTimer, null);
@@ -130,12 +130,16 @@ tm = sessionReducer(tm, { type: 'startTurn', teamId: 'catering', now: 50_000 });
 check('повторное открытие не перезапускает', tm.turnTimer?.deadline, 181_000);
 tm = sessionReducer(tm, { type: 'pauseTurn', now: 61_000 });
 check('пауза хранит остаток', tm.turnTimer?.pausedLeft, 120_000);
-tm = sessionReducer(tm, { type: 'extendTurn', seconds: 60 });
+tm = sessionReducer(tm, { type: 'extendTurn', seconds: 60, now: 70_000 });
 check('+1 мин на паузе', [tm.turnTimer?.pausedLeft, tm.turnTimer?.limitMs], [180_000, 240_000]);
 tm = sessionReducer(tm, { type: 'resumeTurn', now: 100_000 });
 check('продолжить: новый дедлайн', [tm.turnTimer?.deadline, tm.turnTimer?.pausedLeft], [280_000, null]);
 tm = sessionReducer(tm, { type: 'restartTurn', now: 200_000 });
 check('заново: полный срок', [tm.turnTimer?.deadline, tm.turnTimer?.limitMs], [380_000, 180_000]);
+tm = sessionReducer(tm, { type: 'extendTurn', seconds: 60, now: 500_000 });
+check('+1 мин после нуля — от «сейчас»', [tm.turnTimer?.deadline, tm.turnTimer?.limitMs], [560_000, 360_000]);
+tm = sessionReducer(tm, { type: 'pauseTurn', now: 600_000 });
+check('пауза после нуля хранит 0', tm.turnTimer?.pausedLeft, 0);
 tm = sessionReducer(tm, { type: 'submit', teamId: 'stage', decision: decision({}) });
 check('решение другой команды отсчёт не трогает', tm.turnTimer?.teamId, 'catering');
 tm = sessionReducer(tm, { type: 'submit', teamId: 'catering', decision: decision({}) });

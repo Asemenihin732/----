@@ -76,7 +76,7 @@ export type SessionAction =
   | { type: 'startTurn'; teamId: TeamId; now: number }
   | { type: 'pauseTurn'; now: number }
   | { type: 'resumeTurn'; now: number }
-  | { type: 'extendTurn'; seconds: number }
+  | { type: 'extendTurn'; seconds: number; now: number }
   | { type: 'restartTurn'; now: number }
   | { type: 'advanceTeam' }
   | { type: 'advanceRound' }
@@ -136,7 +136,8 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case 'pauseTurn': {
       const t = state.turnTimer;
       if (!t || t.pausedLeft !== null) return state;
-      return { ...state, turnTimer: { ...t, pausedLeft: t.deadline - action.now } };
+      // ниже нуля не считаем: пауза после конца хода хранит 0
+      return { ...state, turnTimer: { ...t, pausedLeft: Math.max(0, t.deadline - action.now) } };
     }
 
     case 'resumeTurn': {
@@ -149,13 +150,16 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
       const t = state.turnTimer;
       if (!t) return state;
       const ms = action.seconds * 1000;
+      // время вышло — минута отсчитывается от «сейчас», а не от прошедшего дедлайна
+      const deadline = Math.max(t.deadline, action.now) + ms;
       return {
         ...state,
         turnTimer: {
           ...t,
-          deadline: t.deadline + ms,
+          deadline,
           pausedLeft: t.pausedLeft === null ? null : t.pausedLeft + ms,
-          limitMs: t.limitMs + ms,
+          // limitMs — сколько всего дали на ход: spentSeconds = limitMs − остаток
+          limitMs: t.limitMs + (deadline - t.deadline),
         },
       };
     }
