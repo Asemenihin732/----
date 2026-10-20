@@ -51,7 +51,7 @@ const NAV = [
   { to: '/deck', label: 'Колода', icon: <IconCards /> },
   // вход участников в тенант по ссылке (/join) — пока не показываем в меню
   // { to: '/join', label: 'Подключиться', icon: <IconJoin /> },
-  { to: '/admin', label: 'Админка', icon: <IconAdmin /> },
+  { to: '/admin', label: 'Администрирование', icon: <IconAdmin /> },
 ];
 
 interface Props {

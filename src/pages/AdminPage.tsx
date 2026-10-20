@@ -110,8 +110,8 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col gap-[var(--ui-gap)]">
       <div>
-        <h2 className="text-2xl font-extrabold text-strong">Админка</h2>
-        <p className="text-sm text-muted">Настройки игры, доступные фасилитатору.</p>
+        <h2 className="text-2xl font-extrabold text-strong">Администрирование</h2>
+        <p className="text-sm text-muted">Настройки доступа.</p>
       </div>
 
       <section className="rounded-2xl border border-line bg-card p-5">
