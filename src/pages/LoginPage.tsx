@@ -23,7 +23,8 @@ export default function LoginPage() {
   const location = useLocation();
   const from = (location.state as RedirectState | null)?.from ?? '/';
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  // переключатель «Регистрация» сейчас не показывается — форма всегда в режиме входа
+  const [mode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
