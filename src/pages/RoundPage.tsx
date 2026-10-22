@@ -7,6 +7,7 @@ import { Scoreboard, buildRows } from '../components/Scoreboard';
 import { roundInsight } from '../game/analysis';
 import { accentFor } from '../data/theme';
 import type { RoundNumber } from '../game/types';
+import { ProjectIcon } from '../components/icons';
 
 export default function RoundPage() {
   const { state, dispatch } = useSession();
@@ -48,7 +49,7 @@ export default function RoundPage() {
           return (
             <div key={row.teamId} className="rounded-xl border border-line bg-card p-4">
               <div className="mb-1 flex items-center gap-2">
-                <span>{row.emoji}</span>
+                <ProjectIcon id={row.teamId} className={`h-4 w-4 ${theme.text}`} />
                 <span className={`font-semibold ${theme.text}`}>{row.name}</span>
               </div>
               <p className="text-sm text-muted">{roundInsight(team.decisions, round)}</p>

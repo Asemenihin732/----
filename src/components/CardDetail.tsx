@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Card, Variant } from '../game/types';
 import { accentFor } from '../data/theme';
-import { categoryEmoji, categoryLabels } from '../data/labels';
+import { categoryLabels } from '../data/labels';
+import { CategoryIcon } from './icons';
 import { formatMoney, formatSignedDays, formatSignedPct, formatSignedRub } from '../game/engine';
 
 interface Props {
@@ -30,7 +31,7 @@ export function CardDetail({ card, accent, onChoose, stacked }: Props) {
         <div className="shrink-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-2">
-              <span className="text-lg">{categoryEmoji[card.category]}</span>
+              <CategoryIcon category={card.category} className={`h-5 w-5 ${theme.text}`} />
               <span className={`text-caption font-semibold uppercase tracking-wide ${theme.text}`}>
                 {categoryLabels[card.category]}
               </span>

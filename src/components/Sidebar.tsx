@@ -6,6 +6,7 @@ import { NavLink } from 'react-router-dom';
 import { useSession } from '../game/store';
 import { getProject } from '../data/projects';
 import { XlanceLogo } from './XLanceLogo';
+import { ProjectIcon } from './icons';
 
 /* ---------------------------------- иконки --------------------------------- */
 
@@ -105,7 +106,7 @@ export function Sidebar({ onNavigate }: Props) {
                     }`
                   }
                 >
-                  <span>{p.emoji}</span>
+                  <ProjectIcon id={id} />
                   <span className="truncate">
                     {i + 1}. {p.shortName}
                   </span>

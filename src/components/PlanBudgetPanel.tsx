@@ -10,6 +10,7 @@ import { getProject } from '../data/projects';
 import type { XlGanttTask } from '../api/types';
 import { api } from '../api/api';
 import GanttChart from './GanttChart';
+import { ProjectIcon } from './icons';
 
 interface Props {
   project: Project;
@@ -86,7 +87,9 @@ export function PlanBudgetPanel({ project, team }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{project.emoji}</span>
+            <span className={`grid h-8 w-8 place-items-center rounded-lg ${accent.bgSoft} ${accent.text}`}>
+              <ProjectIcon id={project.id} className="h-5 w-5" />
+            </span>
             <h2 className="text-xl font-semibold text-strong">{project.name}</h2>
           </div>
           <p className="mt-1 max-w-xl text-sm text-muted">{project.feature}</p>

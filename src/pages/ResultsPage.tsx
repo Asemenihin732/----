@@ -4,10 +4,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../game/store';
 import { Scoreboard } from '../components/Scoreboard';
-import { getProject } from '../data/projects';
+import { getProject, type TeamId } from '../data/projects';
 import { computeKpi, formatPct, formatMoney } from '../game/engine';
 import { analyzeTeam } from '../game/analysis';
 import { accentFor } from '../data/theme';
+import { ProjectIcon } from '../components/icons';
 
 export default function ResultsPage() {
   const { state, restart } = useSession();
@@ -47,26 +48,32 @@ export default function ResultsPage() {
     <div className="py-4">
       <p className="mb-2 text-center text-sm uppercase tracking-[0.3em] text-brand">Итоги игры</p>
       <h1 className="mb-2 text-center text-3xl font-bold text-strong">
-        {winner.project.emoji} Победитель: {winner.project.name}
+        <span className="inline-flex items-center gap-2">
+          <ProjectIcon id={winner.project.id} className="h-7 w-7 text-brand" />
+          Победитель: {winner.project.name}
+        </span>
       </h1>
       <p className="mb-8 text-center text-muted">Индекс проекта — {formatPct(winner.kpi.index)}</p>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Nomination
           title="Любимец заказчика"
-          value={`${favorite.project.emoji} ${favorite.project.name}`}
+          value={favorite.project.name}
+          icon={favorite.project.id}
           sub={`удовлетворённость ${formatPct(favorite.team.satisfaction)}`}
         />
         <Nomination
           title="Финансовая дисциплина"
-          value={`${disciplined.project.emoji} ${disciplined.project.name}`}
+          value={disciplined.project.name}
+          icon={disciplined.project.id}
           sub={`факт. маржа ${formatPct(disciplined.kpi.factMarginPct)} · ${formatMoney(
             disciplined.team.factIncome - disciplined.team.factCost,
           )}`}
         />
         <Nomination
           title="Мастер переговоров"
-          value={`${negotiator.project.emoji} ${negotiator.project.name}`}
+          value={negotiator.project.name}
+          icon={negotiator.project.id}
           sub={`${negotiator.team.changeRequestsApproved} запросов на изменение`}
         />
       </div>
@@ -90,7 +97,7 @@ export default function ResultsPage() {
             <div key={id} className="rounded-2xl border border-line bg-card p-5">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-faint">#{i + 1}</span>
-                <span>{project.emoji}</span>
+                <ProjectIcon id={project.id} className={`h-4 w-4 ${theme.text}`} />
                 <span className={`font-semibold ${theme.text}`}>{project.name}</span>
                 <span className="ml-auto flex items-center gap-3 text-sm text-muted">
                   <span>индекс {formatPct(kpi.index)}</span>
@@ -146,11 +153,14 @@ export default function ResultsPage() {
   );
 }
 
-function Nomination({ title, value, sub }: { title: string; value: string; sub: string }) {
+function Nomination({ title, value, icon, sub }: { title: string; value: string; icon: TeamId; sub: string }) {
   return (
     <div className="rounded-xl border border-line bg-card p-4 text-center">
       <div className="mb-1 text-caption uppercase tracking-wide text-muted">{title}</div>
-      <div className="font-semibold text-strong">{value}</div>
+      <div className="flex items-center justify-center gap-1.5 font-semibold text-strong">
+        <ProjectIcon id={icon} className="h-4 w-4 text-brand" />
+        {value}
+      </div>
       <div className="mt-0.5 text-xs text-muted">{sub}</div>
     </div>
   );

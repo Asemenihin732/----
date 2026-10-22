@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { accentFor } from '../data/theme';
-import { categoryEmoji } from '../data/labels';
+import { CategoryIcon } from './icons';
 
 interface Props {
   /** Сколько закрытых карт выложить (содержимое не важно — откроется карточка колоды) */
@@ -15,11 +15,11 @@ export function CardGrid({ count = 4, accent, onPick }: Props) {
   const theme = accentFor(accent);
   return (
     // На широких экранах ряд карт занимает всю доступную высоту, ширина карты — по пропорции.
-    <div className="grid grid-cols-2 gap-4 pt-1 sm:grid-cols-4 lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:grid-rows-[minmax(0,1fr)]">
+    <div className="grid grid-cols-2 gap-4 pb-1 pt-2 sm:grid-cols-4 lg:min-h-[var(--ui-cards-min-height)] lg:flex-1 lg:grid-rows-[minmax(0,1fr)]">
       {backs.map((backId, i) => (
         <motion.button
           key={backId}
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.06 }}
           whileHover={{ y: -4 }}
@@ -41,7 +41,7 @@ export function CardBack({ accent }: { accent: string }) {
   const theme = accentFor(accent);
   return (
     <div className={`flex h-24 items-center justify-center rounded-2xl border bg-card ${theme.border}`}>
-      <span className="text-2xl">{categoryEmoji.UNIVERSAL}</span>
+      <CategoryIcon category="UNIVERSAL" className={`h-6 w-6 ${theme.text}`} />
     </div>
   );
 }

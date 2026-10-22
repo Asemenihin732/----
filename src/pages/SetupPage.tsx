@@ -13,6 +13,7 @@ import { LEGEND, ROUND_XLANCE_ACTION } from '../data/gameData';
 import { loadProvisionResult, provisionGame, type ProvisionResult } from '../api/provision';
 import { clearSyncReports } from '../api/syncReports';
 import { xlanceAppUrl } from '../api/config';
+import { ProjectIcon } from '../components/icons';
 
 const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-6 py-2.5 text-sm font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50';
@@ -205,8 +206,9 @@ export default function SetupPage() {
                     ✓
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-strong">
-                      {p.emoji} {p.number}. {p.shortName}
+                    <span className="flex items-center gap-1.5 truncate text-sm font-bold text-strong">
+                      <ProjectIcon id={p.id} className="h-4 w-4 text-brand" />
+                      {p.number}. {p.shortName}
                     </span>
                     <span className="block truncate text-caption text-muted">
                       {formatMoney(p.baseIncome)} · маржа {p.baseMarginPct}% · {p.baseDurationDays} дн.

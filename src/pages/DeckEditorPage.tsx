@@ -26,6 +26,7 @@ import { CardDetail } from '../components/CardDetail';
 import { checkDeck, type DeckIssue } from '../game/deckCheck';
 import { VariantEditor } from '../components/deck/VariantEditor';
 import { btnOutline, btnPrimary, Field, inputCls, Select, TextInput } from '../components/deck/fields';
+import { ProjectIcon } from '../components/icons';
 
 const ROUNDS: RoundNumber[] = [1, 2, 3];
 const KEYS: VariantKey[] = ['A', 'B', 'C'];
@@ -286,7 +287,10 @@ export default function DeckEditorPage() {
               p.id === team ? 'border-brand bg-brand/10 font-semibold text-strong' : 'border-line bg-card text-muted hover:bg-soft'
             }`}
           >
-            {p.emoji} {p.number}. {p.shortName}
+            <span className="inline-flex items-center gap-1.5">
+              <ProjectIcon id={p.id} />
+              {p.number}. {p.shortName}
+            </span>
             <IssueDot issues={issuesOf(p.id)} />
           </button>
         ))}

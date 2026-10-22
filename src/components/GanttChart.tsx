@@ -47,7 +47,7 @@ export default function GanttChart({
               <span
                 key={d}
                 className={`h-[var(--ui-gantt-bar-height)] rounded ${
-                  on ? (t.critical ? 'bg-warn' : 'bg-brand') : beyond ? 'bg-danger/25' : 'bg-soft2'
+                  on ? (t.critical ? 'bg-accent' : 'bg-brand') : beyond ? 'bg-danger/25' : 'bg-soft2'
                 }`}
                 style={{ opacity: on ? 1 : beyond ? 0.35 : 0.6 }}
               />

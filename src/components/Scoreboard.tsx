@@ -3,11 +3,11 @@ import { getProject, type TeamId } from '../data/projects';
 import { computeKpi, formatMoney, formatPct } from '../game/engine';
 import { accentFor } from '../data/theme';
 import type { TeamProgress } from '../game/types';
+import { ProjectIcon } from './icons';
 
 interface Row {
   teamId: TeamId;
   name: string;
-  emoji: string;
   accent: string;
   scheduleKpi: number;
   marginKpi: number;
@@ -25,7 +25,6 @@ export function buildRows(teams: Record<TeamId, TeamProgress>, teamIds: TeamId[]
       return {
         teamId: id,
         name: project.name,
-        emoji: project.emoji,
         accent: project.accent,
         scheduleKpi: kpi.scheduleKpi,
         marginKpi: kpi.marginKpi,
@@ -77,7 +76,7 @@ export function Scoreboard({
                 <td className="px-4 py-3 font-semibold text-muted">{i + 1}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2">
-                    <span>{row.emoji}</span>
+                    <ProjectIcon id={row.teamId} className="h-4 w-4 text-muted" />
                     <span className={`font-medium ${isLeader ? 'text-strong' : 'text-body'}`}>{row.name}</span>
                   </span>
                 </td>

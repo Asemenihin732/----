@@ -401,10 +401,10 @@ export default function TeamRoundPage() {
 
       {/* ------------------------------- карточки ------------------------------- */}
       {/* Пока карты рубашкой вверх, блок растёт вместе с ними и останавливается,
-          когда карты достигли --ui-cards-max-height (запас 4.5rem — заголовок и отступы). */}
+          когда карты достигли --ui-cards-max-height (запас 5rem — заголовок, отступы и место под подъём карты). */}
       <section
         className={`flex flex-col rounded-2xl border border-line bg-card p-4 lg:min-h-0 lg:flex-1 ${
-          showCardBacks ? 'lg:max-h-[calc(var(--ui-cards-max-height)+4.5rem)]' : ''
+          showCardBacks ? 'lg:max-h-[calc(var(--ui-cards-max-height)+5rem)]' : ''
         }`}
       >
         <div className="mb-3 flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -419,7 +419,11 @@ export default function TeamRoundPage() {
         </div>
 
         {/* карты растягиваются на оставшуюся высоту; длинная развёрнутая карта прокручивается внутри */}
-        <div className="flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
+        {/* закрытые карты всегда помещаются целиком — прокрутку отключаем, иначе подъём карты
+            при наведении на миг даёт полосу прокрутки и интерфейс дёргается */}
+        <div
+          className={`flex min-h-0 flex-1 flex-col ${showCardBacks ? 'lg:overflow-hidden' : 'lg:overflow-y-auto'}`}
+        >
           {roundDecision && decisionThisRound ? (
             <div data-testid="decision-done" className="rounded-xl border border-ok/40 bg-ok/10 p-5 text-center">
               <p className="mb-1 text-caption uppercase tracking-wide text-muted">Решение принято</p>

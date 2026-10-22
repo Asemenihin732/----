@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from '../game/store';
 import { timerLeftMs, type TeamId } from '../game/types';
+import { IconMute, IconPause, IconPlay } from './icons';
 
 /** Предупреждаем жёлтым, когда осталось меньше 30 с */
 const WARN_MS = 30_000;
@@ -124,7 +125,9 @@ export function TurnTimer({ teamId }: { teamId: TeamId }) {
           title="Выключить писк"
           onClick={() => setMutedDeadline(deadline)}
         >
-          🔇 тише
+          <span className="flex items-center gap-1">
+            <IconMute className="h-3.5 w-3.5" /> тише
+          </span>
         </button>
       ) : null}
       <button
@@ -134,7 +137,7 @@ export function TurnTimer({ teamId }: { teamId: TeamId }) {
         title={paused ? 'Продолжить' : 'Пауза'}
         onClick={() => dispatch({ type: paused ? 'resumeTurn' : 'pauseTurn', now: Date.now() })}
       >
-        {paused ? '▶' : '❚❚'}
+        {paused ? <IconPlay className="h-3.5 w-3.5" /> : <IconPause className="h-3.5 w-3.5" />}
       </button>
       <button
         type="button"
