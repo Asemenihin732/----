@@ -62,7 +62,7 @@ export default function RoundPage() {
           type="button"
           data-testid="round-next"
           onClick={next}
-          className="rounded-full bg-brand px-8 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
+          className="rounded-lg bg-brand px-8 py-3 font-bold text-white transition hover:bg-brand-hover"
         >
           {isLastRound ? 'Итоги игры →' : `Раунд ${round + 1} →`}
         </button>

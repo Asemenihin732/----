@@ -1,7 +1,8 @@
 /**
  * Админка фасилитатора. Пока один раздел — вход по ссылке (/join):
  * в какие тенанты участники могут войти сами, и ссылки для них.
- * Открыть или закрыть вход может только админ тенанта в X-Lance — проверяет сервер.
+ * Открыть или закрыть вход может только админ тенанта в X-Lance — проверяет сервер;
+ * участников приглашают от имени того, кто открыл (или последним продлил) вход.
  * Ссылка живёт ограниченное время (XL_JOIN_INVITE_TIME на сервере), истёкшую можно продлить.
  * Под ссылкой — QR-код: его можно показать крупно на экране, чтобы участники отсканировали.
  */
@@ -11,23 +12,23 @@ import { myTenants, type Tenant } from '../api/graphqlApi';
 import { joinAdmin, joinLink, type JoinTenant, type ServiceStatus } from '../api/joinAdmin';
 
 const btnPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50';
 const btnOutline =
-  'inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-1.5 text-sm font-semibold text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-1.5 text-sm font-medium text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
 const inputCls =
   'w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-strong outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
 const SERVICE: Record<ServiceStatus, { text: string; cls: string }> = {
   ok: { text: 'Готово — приглашения работают', cls: 'border-ok/40 bg-ok/10 text-ok' },
   'not-admin': {
-    text: 'Служебный аккаунт не админ в этом тенанте — добавьте его администратором',
+    text: 'Открывший вход больше не админ в этом тенанте — продлите ссылку от админа',
     cls: 'border-warn/40 bg-warn/10 text-warn',
   },
   'no-account': {
-    text: 'Служебный аккаунт не задан на сервере (XL_JOIN_EMAIL / XL_JOIN_PASSWORD)',
+    text: 'Сессия открывшего вход истекла — нажмите «Продлить»',
     cls: 'border-warn/40 bg-warn/10 text-warn',
   },
-  error: { text: 'Не удалось проверить служебный аккаунт', cls: 'border-danger/40 bg-danger/10 text-danger' },
+  error: { text: 'Не удалось проверить доступ открывшего вход', cls: 'border-danger/40 bg-danger/10 text-danger' },
 };
 
 const fmt = (iso: string) =>

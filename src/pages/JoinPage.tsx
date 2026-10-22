@@ -5,6 +5,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { XlanceLogo } from '../components/XLanceLogo';
 import { xlanceAppUrl } from '../api/config';
 
 const inputCls =
@@ -16,6 +17,8 @@ interface JoinResult {
   status?: string;
   tenantKey?: string;
   tenantName?: string;
+  /** аккаунт создан сейчас — пароль для первого входа */
+  password?: string;
 }
 
 export default function JoinPage() {
@@ -53,15 +56,11 @@ export default function JoinPage() {
   return (
     <div className="grid min-h-screen place-items-center bg-canvas px-4 py-10">
       <div className="w-full max-w-[29rem] overflow-hidden rounded-3xl border border-line bg-card">
-        <div className="bg-gradient-to-br from-[#212346] via-[#2a2a63] to-[#6270d0] p-7 text-white">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 text-lg font-black">
-              X
-            </span>
-            <span>
-              <span className="block text-lg font-extrabold leading-none">X-Lance</span>
-              <span className="text-xs text-white/80">Деловая игра «Спаси конференцию!»</span>
-            </span>
+        <div className="bg-gradient-to-br from-brand-dark via-[#37516d] to-[#57799f] p-7 text-white">
+          {/* белый вариант логотипа (Logo white из макета) */}
+          <div className="flex flex-col gap-2 [--c-logo-ink:#ffffff]">
+            <XlanceLogo size="md" className="self-start" />
+            <span className="text-xs text-white/80">Деловая игра «Спаси конференцию!»</span>
           </div>
         </div>
 
@@ -75,12 +74,17 @@ export default function JoinPage() {
                 ? `У почты ${email.trim()} уже есть доступ к «${result.tenantName}».`
                 : `Приглашение в «${result.tenantName}» отправлено на ${email.trim()}. Откройте письмо от X-Lance и войдите с этой почтой.`}
             </p>
+            {result.password ? (
+              <p data-testid="join-password" className="mb-5 rounded-lg bg-soft px-4 py-3 text-sm text-strong">
+                Пароль для входа: <span className="font-mono font-semibold">{result.password}</span>
+              </p>
+            ) : null}
             {result.tenantKey ? (
               <a
                 href={xlanceAppUrl(result.tenantKey)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full rounded-full bg-brand px-6 py-3 text-center font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
+                className="block w-full rounded-lg bg-brand px-6 py-3 text-center font-bold text-white transition hover:bg-brand-hover"
               >
                 Открыть X-Lance
               </a>
@@ -140,7 +144,7 @@ export default function JoinPage() {
                 type="submit"
                 data-testid="join-submit"
                 disabled={!canSubmit || busy}
-                className="w-full rounded-full bg-brand px-6 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-lg bg-brand px-6 py-3 font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? 'Подождите…' : 'Получить доступ'}
               </button>

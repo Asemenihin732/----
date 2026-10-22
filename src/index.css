@@ -8,46 +8,58 @@
    тёмная включается атрибутом [data-mode="dark"] на <html>.
    ===================================================================== */
 
+/* Палитра бренда: Primary 500 #3D6086 · Primary 700 #37516D · Dark #172E47 ·
+   Accent light #57799F · Accent green #90C956 */
 :root {
-  --c-canvas: #f2f2f3;
-  --c-card: #ffffff;
+  --c-canvas: #f8f8f8; /* Background grey */
+  --c-card: #fcfdfe; /* X-Lance background */
   --c-soft: #f4f6f8;
-  --c-soft2: #e9edf1;
-  --c-line: #dfe1e4;
-  --c-strong: #191d22;
-  --c-body: #3a4048;
-  --c-muted: #656d75;
-  --c-faint: #8a929b;
-  --c-brand: #6270d0;
-  --c-shell: #212346;
-  --c-shelltext: #f1f2f8;
-  --c-shellmuted: #9ea8e2;
-  --c-primary: #0465af;
+  --c-soft2: #eceff3;
+  --c-line: #e1e5ea; /* X-Lance border */
+  --c-strong: #1e3140; /* Text color */
+  --c-body: #2e3e4d;
+  --c-muted: #778791; /* Secondary text */
+  --c-faint: #9aa6ae;
+  --c-brand: #3d6086; /* Primary 500 / Accent text — кнопки */
+  --c-brand-hover: #37516d; /* Primary 700 */
+  --c-brand-dark: #172e47; /* Dark */
+  --c-brand-light: #57799f; /* Accent light */
+  --c-accent: #90c956; /* Accent green */
+  --c-logo-ink: #3d6086; /* синие части логотипа */
+  --c-shell: #f1f4f7; /* Surface tint — фон меню */
+  --c-shelltext: #22354b;
+  --c-shellmuted: #7b8d99;
+  --c-primary: #3d6086;
   --c-danger: #cc342d;
   --c-ok: #11813c;
   --c-warn: #8e4300;
-  --c-overlay: rgba(25, 29, 34, 0.08);
+  --c-overlay: rgba(23, 46, 71, 0.35);
 }
 
 [data-mode="dark"] {
-  --c-canvas: #0c0e12;
-  --c-card: #202328;
-  --c-soft: #272a30;
-  --c-soft2: #2c3137;
-  --c-line: #2f3339;
-  --c-strong: #e5e8ed;
-  --c-body: #cdd1d8;
-  --c-muted: #999fa7;
-  --c-faint: #6b727a;
-  --c-brand: #7b8ae4;
-  --c-shell: #0f1029;
-  --c-shelltext: #eaebf1;
-  --c-shellmuted: #99a1d1;
-  --c-primary: #60aaf3;
+  --c-canvas: #0d1620;
+  --c-card: #16222f;
+  --c-soft: #1c2a39;
+  --c-soft2: #233344;
+  --c-line: #2a3a4b;
+  --c-strong: #e8edf2;
+  --c-body: #cfd8e0;
+  --c-muted: #93a1ab;
+  --c-faint: #66747f;
+  --c-brand: #57799f;
+  --c-brand-hover: #6b8db3;
+  --c-brand-dark: #172e47;
+  --c-brand-light: #8aa6c4;
+  --c-accent: #90c956;
+  --c-logo-ink: #ffffff;
+  --c-shell: #172e47;
+  --c-shelltext: #f1f4f7;
+  --c-shellmuted: #a3b4c6;
+  --c-primary: #8aa6c4;
   --c-danger: #f66e60;
   --c-ok: #69c27e;
   --c-warn: #e79f5c;
-  --c-overlay: rgba(0, 0, 0, 0.4);
+  --c-overlay: rgba(0, 0, 0, 0.5);
 }
 
 @theme inline {
@@ -61,6 +73,10 @@
   --color-muted: var(--c-muted);
   --color-faint: var(--c-faint);
   --color-brand: var(--c-brand);
+  --color-brand-hover: var(--c-brand-hover);
+  --color-brand-dark: var(--c-brand-dark);
+  --color-brand-light: var(--c-brand-light);
+  --color-accent: var(--c-accent);
   --color-shell: var(--c-shell);
   --color-shelltext: var(--c-shelltext);
   --color-shellmuted: var(--c-shellmuted);
@@ -70,7 +86,38 @@
   --color-warn: var(--c-warn);
   --color-overlay: var(--c-overlay);
 
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* Типографика из макета Figma (Kit X-Lance → Typografic), шрифт Manrope.
+     Шкала Tailwind переназначена на стили макета:
+     text-5xl = H1 46/140 · text-4xl = H2 36/120 · text-3xl = H3 28/130 ·
+     text-2xl = H3-1 24/130 · text-xl = H4 20/130 · text-lg = H5 18/130 ·
+     text-sm = H6 14/150 · text-base = Body 15/145 · text-xs = Small 12/160 ·
+     text-caption = Super small 11/140. Цвет текста — #1E3140. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.45;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.3;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 1.3;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.2;
+  --text-5xl: 2.875rem;
+  --text-5xl--line-height: 1.4;
+
+  /* Скругления как в X-Lance: базовый радиус 6px, карточки — до 12px */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.75rem;
 }
 
 html,
@@ -84,6 +131,9 @@ body {
   background: var(--c-canvas);
   color: var(--c-strong);
   font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  font-weight: 500; /* Body/15M */
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "tnum" 1;
 }
@@ -120,3 +170,4 @@ textarea,
 select {
   font: inherit;
 }
+

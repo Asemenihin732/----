@@ -4,7 +4,7 @@
  */
 import { authStore, refreshTokens } from './authStore';
 
-/** Готов ли служебный аккаунт приглашать в тенант (см. server/join.ts) */
+/** Может ли открывший вход приглашать в тенант (см. server/join.ts) */
 export type ServiceStatus = 'ok' | 'not-admin' | 'no-account' | 'error';
 
 export interface JoinTenant {
@@ -42,7 +42,8 @@ async function request(path: string, init: RequestInit = {}): Promise<JoinTenant
 export const joinAdmin = {
   list: () => request('/'),
   /** открыть вход; для открытого — продлить срок ссылки */
-  open: (tenantId: string) => request('/', { method: 'POST', body: JSON.stringify({ tenantId }) }),
+  open: (tenantId: string) =>
+    request('/', { method: 'POST', body: JSON.stringify({ tenantId, refreshToken: authStore.refreshToken }) }),
   close: (tenantId: string) => request(`/${encodeURIComponent(tenantId)}`, { method: 'DELETE' }),
 };
 

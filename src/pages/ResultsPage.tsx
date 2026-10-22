@@ -1,5 +1,5 @@
 /**
- * Итоги игры: гран-при, номинации, табло и разбор по командам (PMBOK).
+ * Итоги игры: победитель, три номинации, табло и разбор по командам (PMBOK).
  */
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../game/store';
@@ -47,7 +47,7 @@ export default function ResultsPage() {
     <div className="py-4">
       <p className="mb-2 text-center text-sm uppercase tracking-[0.3em] text-brand">Итоги игры</p>
       <h1 className="mb-2 text-center text-3xl font-bold text-strong">
-        {winner.project.emoji} Гран-при: {winner.project.name}
+        {winner.project.emoji} Победитель: {winner.project.name}
       </h1>
       <p className="mb-8 text-center text-muted">Индекс проекта — {formatPct(winner.kpi.index)}</p>
 
@@ -137,7 +137,7 @@ export default function ResultsPage() {
         <button
           type="button"
           onClick={newGame}
-          className="rounded-full border border-line px-8 py-3 font-semibold text-body transition hover:bg-soft"
+          className="rounded-lg border border-line px-8 py-3 font-medium text-body transition hover:bg-soft"
         >
           Новая партия
         </button>

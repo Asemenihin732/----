@@ -2,18 +2,17 @@
  * POST /api/join — вход участника в тенант игры по ссылке.
  *
  * Гость не авторизован и сам себя пригласить не может (`inviteHumanResource`
- * требует прав админа тенанта), поэтому приглашает сервер от служебного
- * аккаунта. Его пароль живёт только в окружении сервера (не VITE_* — в бандл
- * не попадает).
+ * требует прав админа тенанта), поэтому сервер приглашает от имени фасилитатора,
+ * открывшего вход в админке: его сессия хранится вместе с тенантом
+ * (server/joinTenants.ts) и обновляется через refreshToken.
  *
- * Шаги: служебный вход → тенант из списка открытых (его ведёт фасилитатор в
- * админке, server/joinTenants.ts) → права админа → человек-ресурс с этой почтой
- * (нет — создаём) → в каждый проект тенанта с проектной ролью (по умолчанию
- * «Наблюдатель»: видит проекты и работы, ничего не меняет) → приглашение с ролью.
- * Проекты добавляем и тем, у кого доступ уже был, — вдруг появились новые.
+ * Шаги: тенант из списка открытых → сессия фасилитатора → права админа →
+ * человек-ресурс с этой почтой (нет — создаём) → в каждый проект тенанта с
+ * проектной ролью (по умолчанию «Наблюдатель»: видит проекты и работы, ничего не
+ * меняет) → аккаунт X-Lance с паролем JOIN_PASSWORD, если его ещё нет → приглашение
+ * с ролью. Проекты добавляем и тем, у кого доступ уже был, — вдруг появились новые.
  *
  * Окружение:
- *   XL_JOIN_EMAIL, XL_JOIN_PASSWORD — служебный аккаунт, админ игровых тенантов;
  *   XL_JOIN_ROLE    — код роли тенанта для участника (по умолчанию TENANT_MEMBER);
  *   XL_JOIN_PROJECT_ROLE — код или название проектной роли во всех проектах тенанта
  *                    (по умолчанию PROJECT_VIEWER; none — в проекты не добавлять);
@@ -22,10 +21,10 @@
  *   VITE_XLANCE_API_URL — тот же GraphQL-эндпоинт, что у игры.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { authGql, authStore, requestSignIn } from '../src/api/authStore';
-import { GraphqlError } from '../src/api/graphql';
+import { authGql, authStore } from '../src/api/authStore';
+import { GraphqlError, rawGql } from '../src/api/graphql';
 import { createProjectResource, myAccess, myTenants, projects, type Tenant } from '../src/api/graphqlApi';
-import { activeJoinTenants, loadJoinTenants } from './joinTenants';
+import { activeJoinTenants, loadJoinTenants, updateJoinTenantSession, type JoinTenant } from './joinTenants';
 
 export interface JoinRequest {
   tenant: string;
@@ -39,11 +38,16 @@ export interface JoinResponse {
   error?: string;
   /** INVITED — приглашение отправлено, ACTIVE — доступ уже был */
   status?: string;
+  /** аккаунт X-Lance создан сейчас — войти можно с этим паролем */
+  password?: string;
   tenantKey?: string;
   tenantName?: string;
 }
 
 const env = () => process.env;
+
+/** Пароль нового аккаунта участника — чтобы он сразу мог войти */
+export const JOIN_PASSWORD = '12345678';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -109,6 +113,22 @@ const INVITE = /* GraphQL */ `
   }
 `;
 
+const SIGN_UP = /* GraphQL */ `
+  mutation JoinSignUp($input: SignUpInput!) {
+    signUp(input: $input) {
+      access_token
+    }
+  }
+`;
+
+const CREATE_ACCOUNT = /* GraphQL */ `
+  mutation JoinCreateAccount($input: CreateAccountInput!) {
+    createAccount(input: $input) {
+      id
+    }
+  }
+`;
+
 const PROJECT_ROLES = /* GraphQL */ `
   query JoinProjectRoles($input: FindManyProjectRolesInput!) {
     projectRoles(input: $input) {
@@ -152,48 +172,84 @@ interface Human {
   account?: { email: string } | null;
 }
 
-const serviceConfigured = () => Boolean(env().XL_JOIN_EMAIL && env().XL_JOIN_PASSWORD);
+/** Сессия фасилитатора закончилась — нужно продлить ссылку в админке */
+class SessionExpired extends Error {}
 
-/** Служебная сессия: входим один раз, дальше authGql сам обновляет токен */
-async function ensureSession(): Promise<void> {
-  if (authStore.isAuthenticated()) return;
-  const { XL_JOIN_EMAIL, XL_JOIN_PASSWORD } = env();
-  if (!XL_JOIN_EMAIL || !XL_JOIN_PASSWORD) throw new Error('XL_JOIN_EMAIL / XL_JOIN_PASSWORD не заданы');
-  await requestSignIn(XL_JOIN_EMAIL, XL_JOIN_PASSWORD);
+/**
+ * Выполнить fn от имени фасилитатора, открывшего вход. authGql работает с общим
+ * authStore, поэтому запросы идут по очереди; обновлённые токены сохраняем.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+
+function asOpener<T>(entry: JoinTenant, fn: () => Promise<T>): Promise<T> {
+  const run = async () => {
+    const session = entry.session;
+    if (!session) throw new SessionExpired(`нет сессии фасилитатора для ${entry.key}`);
+    authStore.setTokens(session);
+    try {
+      return await fn();
+    } catch (e) {
+      // authGql очищает токены, если refreshToken не сработал
+      if (!authStore.isAuthenticated()) throw new SessionExpired(`сессия ${entry.addedBy} истекла (${entry.key})`);
+      throw e;
+    } finally {
+      const now = authStore.getTokens();
+      if (now && now.refreshToken !== session.refreshToken) {
+        entry.session = now;
+        await updateJoinTenantSession(entry.id, now);
+      }
+      authStore.clear();
+    }
+  };
+  const result = queue.then(run, run);
+  queue = result.catch(() => undefined);
+  return result;
 }
 
-/** Тенант из списка открытых — по ключу (без учёта регистра) или id; данные — глазами служебного аккаунта */
-async function findAllowedTenant(input: string): Promise<Tenant | null> {
+/** Открытый вход по ключу (без учёта регистра) или id */
+async function findAllowedEntry(input: string): Promise<JoinTenant | null> {
   const wanted = input.trim().toLowerCase();
-  const entry = (await activeJoinTenants()).find((t) => t.id.toLowerCase() === wanted || t.key.toLowerCase() === wanted);
-  if (!entry) return null;
-  return (await myTenants()).find((t) => t.id === entry.id) ?? null;
+  return (await activeJoinTenants()).find((t) => t.id.toLowerCase() === wanted || t.key.toLowerCase() === wanted) ?? null;
 }
 
 /**
- * Готов ли служебный аккаунт приглашать в тенант — для админки:
- * ok — админ; not-admin — нет прав или не состоит в тенанте; no-account — XL_JOIN_* не заданы.
+ * Может ли фасилитатор, открывший вход, приглашать в тенант — для админки:
+ * ok — админ; not-admin — потерял права; no-account — сессия истекла, нужно продлить ссылку.
  */
 export type ServiceStatus = 'ok' | 'not-admin' | 'no-account' | 'error';
 
-export async function serviceStatus(tenantIds: string[]): Promise<Record<string, ServiceStatus>> {
-  const result: Record<string, ServiceStatus> = {};
-  if (!serviceConfigured()) {
-    for (const id of tenantIds) result[id] = 'no-account';
-    return result;
-  }
+export async function serviceStatus(entry: JoinTenant): Promise<ServiceStatus> {
   try {
-    await ensureSession();
-    const visible = new Set((await myTenants()).map((t) => t.id));
-    for (const id of tenantIds) {
-      result[id] = visible.has(id) && (await myAccess(id)).isAdmin ? 'ok' : 'not-admin';
-    }
+    return await asOpener(entry, async () => ((await myAccess(entry.id)).isAdmin ? 'ok' : 'not-admin'));
   } catch (e) {
-    if (e instanceof GraphqlError && e.code === 'UNAUTHENTICATED') authStore.clear();
-    console.error('[join] проверка служебного аккаунта:', e instanceof Error ? e.message : e);
-    for (const id of tenantIds) result[id] ??= 'error';
+    if (e instanceof SessionExpired) return 'no-account';
+    console.error('[join] проверка сессии фасилитатора:', e instanceof Error ? e.message : e);
+    return 'error';
   }
-  return result;
+}
+
+/**
+ * Завести аккаунт X-Lance с паролем JOIN_PASSWORD: сначала signUp от гостя, не вышло —
+ * createAccount от имени фасилитатора (сработает, если у него есть права платформы).
+ * false — не получилось (например, аккаунт с этой почтой уже есть); причины — в лог.
+ */
+async function signUp(email: string, firstName: string, lastName: string): Promise<boolean> {
+  const input = { email, firstName, lastName: lastName || firstName, password: JOIN_PASSWORD };
+  const why = (e: unknown) => (e instanceof GraphqlError ? `${e.code ?? e.status}: ${e.message}` : String(e));
+  try {
+    await rawGql(SIGN_UP, { input });
+    console.info(`[join] ${email}: аккаунт создан через signUp, пароль задан`);
+    return true;
+  } catch (signUpError) {
+    try {
+      await authGql(CREATE_ACCOUNT, { input });
+      console.info(`[join] ${email}: аккаунт создан через createAccount, пароль задан`);
+      return true;
+    } catch (createError) {
+      console.warn(`[join] ${email}: пароль не задан — signUp (${why(signUpError)}), createAccount (${why(createError)})`);
+      return false;
+    }
+  }
 }
 
 async function roleIds(tenantId: string): Promise<string[]> {
@@ -256,31 +312,44 @@ export async function join(req: JoinRequest): Promise<JoinResponse> {
   const [firstName = email.split('@')[0], ...rest] = (req.name ?? '').trim().slice(0, 120).split(/\s+/).filter(Boolean);
   const lastName = rest.join(' ');
 
-  await ensureSession();
-  const tenant = await findAllowedTenant(req.tenant);
-  if (!tenant) return { ok: false, error: TENANT_CLOSED };
+  const entry = await findAllowedEntry(req.tenant);
+  if (!entry) return { ok: false, error: TENANT_CLOSED };
+  return asOpener(entry, async () => {
+    const tenant = (await myTenants()).find((t) => t.id === entry.id);
+    if (!tenant) throw new Error(`${entry.addedBy} больше не состоит в тенанте ${entry.key}`);
+    if (!(await myAccess(tenant.id)).isAdmin) throw new Error(`${entry.addedBy} не админ в тенанте ${tenant.key}`);
+    return invite(tenant, email, firstName, lastName);
+  });
+}
 
-  const access = await myAccess(tenant.id);
-  if (!access.isAdmin) throw new Error(`служебный аккаунт не админ в тенанте ${tenant.key}`);
-
+/** Шаги от имени фасилитатора: аккаунт с паролем → человек → проекты → приглашение */
+async function invite(tenant: Tenant, email: string, firstName: string, lastName: string): Promise<JoinResponse> {
+  let password: string | undefined;
   const done = (status: string): JoinResponse => ({
     ok: true,
     status,
     tenantKey: tenant.key,
     tenantName: tenant.name,
+    password,
   });
 
   const tenantRoleIds = await roleIds(tenant.id);
   let human = await findHuman(tenant.id, email);
   if (!human) {
+    // аккаунт — до человека: createResource с почтой сам заводит аккаунт, и пароль потом не задать
+    if (await signUp(email, firstName, lastName)) password = JOIN_PASSWORD;
     const created = await authGql<{ createResource: { id: string } }>(CREATE_HUMAN, {
       input: { tenantId: tenant.id, resourceType: 'HUMAN', firstName, lastName, email, tenantRoleIds },
     });
-    human = { id: created.createResource.id };
+    // аккаунт к этому моменту есть в любом случае — наш или заведённый X-Lance
+    human = { id: created.createResource.id, account: { email } };
   }
   // до приглашения: если проекты не добавились, повторный вход не пришлёт лишнее письмо
   await addToProjects(tenant.id, human.id);
   if (human.accessStatus === 'ACTIVE') return done('ACTIVE');
+  // человек был и раньше, но без аккаунта — пробуем завести (приглашение привяжется к нему)
+  if (!human.account && (await signUp(email, firstName, lastName))) password = JOIN_PASSWORD;
+  else if (!password) console.info(`[join] ${email}: аккаунт X-Lance уже есть — пароль не трогаем`);
   const invited = await authGql<{ inviteHumanResource: { id: string; accessStatus?: string } }>(INVITE, {
     input: { id: human.id, tenantId: tenant.id, email, tenantRoleIds },
   });
@@ -308,7 +377,7 @@ async function readJson(req: IncomingMessage): Promise<Partial<JoinRequest>> {
 /** Обработчик для connect/node:http (подключён в vite.config.ts для dev и preview) */
 export async function handleJoinRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'Только POST.' });
-  if (!serviceConfigured() || (await loadJoinTenants()).length === 0) {
+  if ((await loadJoinTenants()).length === 0) {
     return send(res, 503, { ok: false, error: 'Вход по ссылке не настроен.' });
   }
   if (rateLimited(req.socket.remoteAddress ?? 'unknown')) {
@@ -328,9 +397,10 @@ export async function handleJoinRequest(req: IncomingMessage, res: ServerRespons
     });
     send(res, result.ok ? 200 : 400, result);
   } catch (e) {
-    // служебная сессия могла протухнуть — следующий запрос войдёт заново
-    if (e instanceof GraphqlError && e.code === 'UNAUTHENTICATED') authStore.clear();
     console.error('[join]', e instanceof Error ? e.message : e);
+    if (e instanceof SessionExpired) {
+      return send(res, 503, { ok: false, error: 'Ссылка устарела — попросите фасилитатора продлить её в админке.' });
+    }
     send(res, 502, { ok: false, error: 'Не удалось выдать доступ. Попробуйте позже или обратитесь к фасилитатору.' });
   }
 }

@@ -77,7 +77,7 @@ export function SyncStatus({ teamId, round, onRetry }: Props) {
               type="button"
               onClick={retry}
               disabled={retrying}
-              className="mt-2 rounded-full border border-line bg-card px-4 py-1 text-sm font-semibold text-strong transition hover:bg-soft disabled:opacity-50"
+              className="mt-2 rounded-lg border border-line bg-card px-4 py-1 text-sm font-medium text-strong transition hover:bg-soft disabled:opacity-50"
             >
               {retrying ? 'Повторяем…' : 'Повторить неудачные'}
             </button>

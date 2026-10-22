@@ -15,9 +15,9 @@ import { clearSyncReports } from '../api/syncReports';
 import { xlanceAppUrl } from '../api/config';
 
 const btnPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-6 py-2.5 text-sm font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50';
 const btnOutline =
-  'inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-semibold text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-5 py-2.5 text-sm font-medium text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
 /** Готовые варианты времени на решение, с; null — без таймера */
 const TURN_PRESETS: (number | null)[] = [null, 120, 180, 300, 600];
 
@@ -84,8 +84,8 @@ export default function SetupPage() {
   return (
     <>
       {/* ------------------------------ легенда -------------------------------- */}
-      <section className="mb-[var(--ui-gap)] rounded-3xl bg-gradient-to-br from-[#212346] via-[#2a2a63] to-[#6270d0] p-5 text-white sm:px-7">
-        <p className="text-caption font-semibold uppercase tracking-[0.25em] text-[#9ea8e2]">
+      <section className="mb-[var(--ui-gap)] rounded-3xl bg-gradient-to-br from-brand-dark via-[#37516d] to-[#57799f] p-5 text-white sm:px-7">
+        <p className="text-caption font-semibold uppercase tracking-[0.25em] text-[#c3d2e2]">
           X-Lance · Деловая игра · методичка v4.0
         </p>
         <h2 className="mt-1 text-3xl font-extrabold">Спаси конференцию!</h2>

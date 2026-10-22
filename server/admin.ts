@@ -1,8 +1,9 @@
 /**
  * /api/admin/join-tenants — админка фасилитатора: куда открыт вход по ссылке.
  *
- *   GET    /                → открытые тенанты, которые видит фасилитатор, + готовность служебного аккаунта
- *   POST   / { tenantId }   → открыть вход в тенант (или продлить срок ссылки, XL_JOIN_INVITE_TIME)
+ *   GET    /                → открытые тенанты, которые видит фасилитатор, + жива ли сессия открывшего
+ *   POST   / { tenantId, refreshToken } → открыть вход в тенант (или продлить срок ссылки,
+ *                             XL_JOIN_INVITE_TIME); участников будут приглашать от имени того, кто открыл
  *   DELETE /:tenantId       → закрыть вход
  *
  * Фасилитатор приходит со своим access-токеном X-Lance (Authorization: Bearer).
@@ -14,7 +15,7 @@ import { GraphqlError, rawGql } from '../src/api/graphql';
 import { serviceStatus, type ServiceStatus } from './join';
 import { loadJoinTenants, removeJoinTenant, upsertJoinTenant, type JoinTenant } from './joinTenants';
 
-export interface AdminJoinTenant extends JoinTenant {
+export interface AdminJoinTenant extends Omit<JoinTenant, 'session'> {
   service: ServiceStatus;
 }
 
@@ -86,8 +87,13 @@ async function requireAdmin(caller: Caller, tenantId: string) {
 async function listFor(caller: Caller): Promise<AdminJoinTenant[]> {
   const visible = new Set(caller.tenants.map((t) => t.id));
   const tenants = (await loadJoinTenants()).filter((t) => visible.has(t.id));
-  const status = await serviceStatus(tenants.map((t) => t.id));
-  return tenants.map((t) => ({ ...t, service: status[t.id] ?? 'error' }));
+  const result: AdminJoinTenant[] = [];
+  // токены фасилитатора остаются на сервере
+  for (const t of tenants) {
+    const { session: _session, ...visibleFields } = t;
+    result.push({ ...visibleFields, service: await serviceStatus(t) });
+  }
+  return result;
 }
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -119,9 +125,17 @@ export async function handleAdminJoinTenants(req: IncomingMessage, res: ServerRe
     if (req.method === 'GET' && !id) return send(res, 200, { tenants: await listFor(caller) });
 
     if (req.method === 'POST' && !id) {
-      const tenantId = String((await readJson(req)).tenantId ?? '');
+      const body = await readJson(req);
+      const tenantId = String(body.tenantId ?? '');
+      const refreshToken = String(body.refreshToken ?? '');
+      if (!refreshToken) throw new HttpError(400, 'Нужен refresh-токен — войдите заново.');
       const tenant = await requireAdmin(caller, tenantId);
-      await upsertJoinTenant({ ...tenant, addedBy: caller.email, addedAt: new Date().toISOString() });
+      await upsertJoinTenant({
+        ...tenant,
+        addedBy: caller.email,
+        addedAt: new Date().toISOString(),
+        session: { accessToken: caller.token, refreshToken },
+      });
       return send(res, 200, { tenants: await listFor(caller) });
     }
 

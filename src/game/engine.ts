@@ -175,8 +175,8 @@ export function rankTeams(entries: TeamEntry[]): RankedTeam[] {
   return rows;
 }
 
+/** Три номинации; победитель игры — первое место в rankTeams */
 export interface Nominations {
-  grandPrix: TeamId[];
   customerFavorite: TeamId[];
   financeDiscipline: TeamId[];
   negotiator: TeamId[];
@@ -184,7 +184,7 @@ export interface Nominations {
 
 export function nominations(entries: TeamEntry[]): Nominations {
   if (entries.length === 0) {
-    return { grandPrix: [], customerFavorite: [], financeDiscipline: [], negotiator: [] };
+    return { customerFavorite: [], financeDiscipline: [], negotiator: [] };
   }
   const totals = entries.map((e) => teamTotals(e.teamId, e.progress));
   const best = (pick: (t: TeamTotals) => number): TeamId[] => {
@@ -192,7 +192,6 @@ export function nominations(entries: TeamEntry[]): Nominations {
     return totals.filter((t) => pick(t) === max).map((t) => t.teamId);
   };
   return {
-    grandPrix: best((t) => t.index),
     customerFavorite: best((t) => t.satisfaction),
     financeDiscipline: best((t) => t.actualMarginPct),
     negotiator: best((t) => entries.find((e) => e.teamId === t.teamId)!.progress.changeRequestsApproved),

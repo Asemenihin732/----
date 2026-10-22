@@ -63,7 +63,7 @@ html {
 /* Утилиты на основе переменных выше */
 @theme inline {
   --text-caption: var(--ui-caption-size);
-  --text-caption--line-height: 1.35;
+  --text-caption--line-height: 1.4; /* Super small/11M */
   --spacing-sidebar: var(--ui-sidebar-width);
   --container-content: var(--ui-content-max-width);
 }

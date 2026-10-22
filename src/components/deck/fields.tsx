@@ -6,9 +6,9 @@ import type { ReactNode } from 'react';
 export const inputCls =
   'w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-strong outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 export const btnPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50';
 export const btnOutline =
-  'inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-2 text-sm font-medium text-strong transition hover:bg-soft disabled:cursor-not-allowed disabled:opacity-50';
 export const btnSmall =
   'inline-flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1 text-xs font-semibold text-strong transition hover:bg-soft';
 export const btnDelete =

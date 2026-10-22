@@ -1,19 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>X-Lance</title>
-  <!-- web-old primary: Radix indigoDark.indigo4. -->
-  <rect width="64" height="64" rx="14" fill="#1D2E62"/>
-  <!-- The X is the first glyph from the X-Lance wordmark, scaled to leave room for the sweep. -->
-  <path
-    fill="#fff"
-    d="M0 27.456L6.01271 19.8067L.133616 12.3077H4.87698L8.32872 16.9489L11.7805 12.3077H16.5461L10.667 19.8067L16.6574 27.456H11.8918L8.32872 22.6859L4.76563 27.456H0Z"
-    transform="translate(14.1 -14.45) scale(2.15)"
-  />
-  <!-- A bright, rounded forward sweep remains visible even in a 16px browser tab. -->
-  <path
-    d="M12.5 53C26.5 53 40.5 50.5 51.5 45.5"
-    fill="none"
-    stroke="#9EADFF"
-    stroke-linecap="round"
-    stroke-width="5"
-  />
+  <title>X-Lance.ai</title>
+  <!-- Знак X-Lance.ai из макета Figma (Favicon white): белый «X» и зелёные элементы на фоне Dark #172E47 -->
+  <rect width="64" height="64" rx="14" fill="#172E47"/>
+  <g transform="translate(9.25 13.4) scale(1.3)">
+    <path d="M9.29032 34.5H0L11.3548 23.5L16 28L9.29032 34.5Z" transform="translate(0 -8.5)" fill="#90C956"/>
+    <path d="M9.3662 8.5H0L25.1408 34.5H35L9.3662 8.5Z" transform="translate(0 -8.5)" fill="#FFFFFF"/>
+    <circle cx="26" cy="6" r="6" fill="#90C956"/>
+  </g>
 </svg>

@@ -3,6 +3,9 @@
  * хранится JSON-файлом на сервере: XL_JOIN_STORE, по умолчанию .data/join-tenants.json
  * (в git не попадает).
  *
+ * Вместе с тенантом хранится сессия X-Lance фасилитатора, открывшего вход:
+ * участников приглашают от его имени. Наружу (в админку) она не отдаётся.
+ *
  * Ссылка живёт XL_JOIN_INVITE_TIME с момента открытия (по умолчанию 24h; число —
  * минуты, суффиксы m/h/d: 90m, 12h, 3d; 0 — без срока). Истёкший вход остаётся в
  * списке — фасилитатор может его продлить, — но участников не пускает.
@@ -19,6 +22,8 @@ export interface JoinTenant {
   addedAt: string;
   /** до какого момента работает ссылка; null — без срока */
   expiresAt?: string | null;
+  /** токены фасилитатора, открывшего вход; продление ссылки их обновляет */
+  session?: { accessToken: string; refreshToken: string };
 }
 
 const storePath = () => process.env.XL_JOIN_STORE || '.data/join-tenants.json';
@@ -64,12 +69,22 @@ export async function activeJoinTenants(): Promise<JoinTenant[]> {
 
 /** Открыть вход или продлить его: срок ссылки отсчитывается заново от addedAt */
 export async function upsertJoinTenant(entry: Omit<JoinTenant, 'expiresAt'>): Promise<void> {
+  // entry.session — сессия того, кто открыл или продлил вход: приглашать будут от него
   const ttl = inviteTimeMs();
   const opened: JoinTenant = { ...entry, expiresAt: ttl ? new Date(Date.parse(entry.addedAt) + ttl).toISOString() : null };
   const tenants = await loadJoinTenants();
   const i = tenants.findIndex((t) => t.id === entry.id);
   if (i >= 0) tenants[i] = opened;
   else tenants.push(opened);
+  await save(tenants);
+}
+
+/** Сохранить обновлённые токены фасилитатора (после refreshToken) */
+export async function updateJoinTenantSession(id: string, session: JoinTenant['session']): Promise<void> {
+  const tenants = await loadJoinTenants();
+  const entry = tenants.find((t) => t.id === id);
+  if (!entry) return;
+  entry.session = session;
   await save(tenants);
 }
 

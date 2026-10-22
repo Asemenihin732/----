@@ -133,7 +133,7 @@ export default function TeamRoundPage() {
         <span className="flex-1">Команда не найдена в текущей сессии.</span>
         <button
           type="button"
-          className="rounded-full border border-line bg-card px-4 py-1.5 font-semibold"
+          className="rounded-lg border border-line bg-card px-4 py-1.5 font-medium"
           onClick={() => navigate('/')}
         >
           К выбору игры
@@ -492,7 +492,7 @@ export default function TeamRoundPage() {
                 type="button"
                 data-testid="next-step"
                 onClick={goNext}
-                className="rounded-full bg-brand px-8 py-3 font-semibold text-white shadow-lg shadow-brand/30 transition hover:brightness-110"
+                className="rounded-lg bg-brand px-8 py-3 font-bold text-white transition hover:bg-brand-hover"
               >
                 {isLastTeam ? 'К табло результатов →' : 'Следующая команда →'}
               </button>
