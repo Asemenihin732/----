@@ -194,6 +194,9 @@ export default function TeamRoundPage() {
     setPicked(null);
   };
 
+  // карты ещё не открыты — показываем рубашки (CardGrid)
+  const showCardBacks = !(roundDecision && decisionThisRound) && !card;
+
   return (
     // На широких экранах страница занимает ровно высоту окна: шапка и план — по содержимому,
     // карточки — всё оставшееся место.
@@ -397,7 +400,13 @@ export default function TeamRoundPage() {
       {/* </div>  */}
 
       {/* ------------------------------- карточки ------------------------------- */}
-      <section className="flex flex-col rounded-2xl border border-line bg-card p-4 lg:min-h-0 lg:flex-1">
+      {/* Пока карты рубашкой вверх, блок растёт вместе с ними и останавливается,
+          когда карты достигли --ui-cards-max-height (запас 4.5rem — заголовок и отступы). */}
+      <section
+        className={`flex flex-col rounded-2xl border border-line bg-card p-4 lg:min-h-0 lg:flex-1 ${
+          showCardBacks ? 'lg:max-h-[calc(var(--ui-cards-max-height)+4.5rem)]' : ''
+        }`}
+      >
         <div className="mb-3 flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="text-sm font-extrabold text-strong">Карточка раунда</h3>
           <p className="text-sm text-muted">

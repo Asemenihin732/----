@@ -60,6 +60,18 @@ export const accentThemes: Record<string, AccentTheme> = {
   },
 }
 
-export function accentFor(accent: string): AccentTheme {
-  return accentThemes[accent] ?? accentThemes.blue
+/** Единый акцент в стиле X-Lance (Primary 500 / Accent light) — для всех команд. */
+const xlanceTheme: AccentTheme = {
+  bg: 'bg-brand',
+  bgSoft: 'bg-brand/10',
+  border: 'border-brand/40',
+  text: 'text-brand',
+  ring: 'ring-brand/50',
+  gradient: 'from-brand/15 to-brand/0',
+}
+
+// Цветные акценты команд (accentThemes) больше не используются в интерфейсе:
+// игра оформлена в фирменных цветах X-Lance.
+export function accentFor(_accent: string): AccentTheme {
+  return xlanceTheme
 }

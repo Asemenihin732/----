@@ -115,13 +115,13 @@ export default function ResultsPage() {
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-1.5 text-caption uppercase tracking-wide text-amber-500">
+                  <p className="mb-1.5 text-caption uppercase tracking-wide text-brand">
                     Что усилить в следующий раз
                   </p>
                   <ul className="space-y-1.5">
                     {analysis.improvements.map((s, idx) => (
                       <li key={idx} className="flex gap-2 text-sm text-body">
-                        <span className="shrink-0 text-amber-500">→</span>
+                        <span className="shrink-0 text-brand">→</span>
                         <span>{s}</span>
                       </li>
                     ))}

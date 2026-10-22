@@ -26,11 +26,11 @@ export function CardGrid({ count = 4, accent, onPick }: Props) {
           whileTap={{ scale: 0.97 }}
           data-testid="card-back"
           onClick={() => onPick(backId)}
-          className={`relative flex aspect-[var(--ui-card-ratio)] w-full cursor-pointer lg:h-full lg:w-auto lg:max-w-full lg:justify-self-center flex-col items-center justify-center gap-2 rounded-2xl border bg-gradient-to-br ${theme.border} ${theme.gradient} bg-card shadow-lg shadow-black/20`}
+          className={`relative flex aspect-[var(--ui-card-ratio)] w-full max-h-[var(--ui-cards-max-height)] max-w-[calc(var(--ui-cards-max-height)*var(--ui-card-ratio))] justify-self-center cursor-pointer lg:h-full lg:w-auto lg:max-w-full lg:justify-self-center flex-col items-center justify-center gap-2 rounded-2xl border bg-gradient-to-br ${theme.border} ${theme.gradient} bg-card shadow-lg shadow-black/20`}
         >
           <span className="absolute inset-2 rounded-xl border border-line" />
-          <span className="text-3xl opacity-70">🎴</span>
-          <span className="text-caption uppercase tracking-[0.2em] text-faint">Карта проблемы</span>
+          <span className="text-3xl opacity-70">{i+1}</span>
+          <span className="text-caption uppercase tracking-[0.4em] text-faint">Карта проблемы</span>
         </motion.button>
       ))}
     </div>
