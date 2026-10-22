@@ -7,6 +7,9 @@ import { useAuth } from '../auth/AuthProvider';
 import { XlanceLogo } from '../components/XLanceLogo';
 import { GRAPHQL_ENDPOINT } from '../api/graphql';
 
+/** Сервер X-Lance, к которому подключена игра (адрес API без пути /api/graphql). */
+const XLANCE_SERVER = new URL(GRAPHQL_ENDPOINT, window.location.origin).origin;
+
 interface RedirectState {
   from?: string;
 }
@@ -159,7 +162,14 @@ export default function LoginPage() {
           </div> */}
 
           <p className="mt-4 text-center text-xs text-faint">
-            API: {GRAPHQL_ENDPOINT}
+            <a
+              href={XLANCE_SERVER}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 transition hover:text-brand hover:underline"
+            >
+              {XLANCE_SERVER.replace(/^https?:\/\//, '')}
+            </a>
             {status === 'loading' ? ' · проверяем сессию…' : ''}
           </p>
         </form>
